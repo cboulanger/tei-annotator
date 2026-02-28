@@ -1,7 +1,30 @@
 [project]
 name = "tei-annotator"
 version = "0.1.0"
-description = "Add your description here"
+description = "TEI XML annotation library using LLM pipelines"
 readme = "README.md"
-requires-python = "==3.12"
-dependencies = []
+requires-python = ">=3.12"
+dependencies = [
+    "jinja2>=3.1",
+    "lxml>=5.0",
+    "rapidfuzz>=3.0",
+]
+
+[project.optional-dependencies]
+gliner = ["gliner>=0.2"]
+
+[tool.pytest.ini_options]
+addopts = "-m 'not integration'"
+markers = [
+    "integration: marks tests as integration tests (require GLiNER model download)",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

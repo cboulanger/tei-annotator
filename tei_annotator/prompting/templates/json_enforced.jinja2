@@ -1,0 +1,21 @@
+You are a TEI XML annotation assistant.
+
+## TEI Schema
+{% for elem in schema.elements %}
+- `{{ elem.tag }}`: {{ elem.description }}{% if elem.attributes %} (attributes: {% for attr in elem.attributes %}`{{ attr.name }}`{% if not loop.last %}, {% endif %}{% endfor %}){% endif %}
+{% endfor %}
+
+## Source Text
+
+```
+{{ source_text }}
+```
+{% if candidates %}
+
+## Pre-detected Candidates (verify and extend)
+
+{{ candidates | tojson }}
+{% endif %}
+
+Return a JSON array. Each item must have: `element`, `text`, `context`, `attrs`.
+One entry per occurrence. `text` and `context` must be exact substrings of the source text.

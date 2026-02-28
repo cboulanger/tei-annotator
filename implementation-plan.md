@@ -340,3 +340,55 @@ def test_annotate_smoke():
     assert "John Smith" in result.xml
     assert result.xml.count("John Smith") == 1   # text not duplicated
 ```
+
+---
+
+## Implementation Status
+
+**Completed 2026-02-28** — full implementation per the plan above.
+
+### What was built
+
+All modules in the package structure were implemented:
+
+| File | Notes |
+| --- | --- |
+| `tei_annotator/models/schema.py` | `TEIAttribute`, `TEIElement`, `TEISchema` dataclasses |
+| `tei_annotator/models/spans.py` | `SpanDescriptor`, `ResolvedSpan` dataclasses |
+| `tei_annotator/inference/endpoint.py` | `EndpointCapability` enum, `EndpointConfig` dataclass |
+| `tei_annotator/chunking/chunker.py` | `chunk_text()` — overlap chunker, XML-safe boundaries |
+| `tei_annotator/detection/gliner_detector.py` | `detect_spans()` — optional, raises `ImportError` if `[gliner]` extra not installed |
+| `tei_annotator/prompting/builder.py` | `build_prompt()` + `make_correction_prompt()` |
+| `tei_annotator/prompting/templates/text_gen.jinja2` | Verbose prompt with JSON example, "output only JSON" instruction |
+| `tei_annotator/prompting/templates/json_enforced.jinja2` | Minimal prompt for constrained-decoding endpoints |
+| `tei_annotator/postprocessing/parser.py` | `parse_response()` — fence stripping, one-shot self-correction retry |
+| `tei_annotator/postprocessing/resolver.py` | `resolve_spans()` — context-anchor → char offset, rapidfuzz fuzzy fallback at threshold 0.92 |
+| `tei_annotator/postprocessing/validator.py` | `validate_spans()` — element, attribute name, allowed-value checks |
+| `tei_annotator/postprocessing/injector.py` | `inject_xml()` — stack-based nesting tree, recursive tag insertion |
+| `tei_annotator/pipeline.py` | `annotate()` — full orchestration, tag strip/restore, deduplication across chunks, lxml final validation |
+
+### Dependencies added
+
+Runtime: `jinja2`, `lxml`, `rapidfuzz`. Optional extra `[gliner]` for GLiNER support. Dev: `pytest`, `pytest-cov`.
+
+### Tests
+
+- **63 unit tests** (Layer 1) — fully mocked, run in < 0.1 s via `uv run pytest`
+- **9 integration tests** (Layer 2, no GLiNER) — complex resolver/injector/pipeline scenarios, run via `uv run pytest --override-ini="addopts=" -m integration tests/integration/test_pipeline_e2e.py -k "not real_gliner"`
+- **1 GLiNER integration test** — requires `[gliner]` extra and HuggingFace model download
+
+### Smoke script
+
+`scripts/smoke_test_llm.py` — end-to-end test with real LLM calls (no GLiNER). Verified against:
+
+- **Google Gemini 2.0 Flash** (`GEMINI_API_KEY` from `.env`)
+- **KISSKI `llama-3.3-70b-instruct`** (`KISSKI_API_KEY` from `.env`, OpenAI-compatible API at `https://chat-ai.academiccloud.de/v1`)
+
+Run with `uv run scripts/smoke_test_llm.py`.
+
+### Key implementation notes
+
+- The `_strip_existing_tags` / `_restore_existing_tags` pair in `pipeline.py` preserves original markup by tracking plain-text offsets of each stripped tag and re-inserting them after annotation.
+- `_build_nesting_tree` in `injector.py` uses a sort-by-(start-asc, length-desc) + stack algorithm; partial overlaps are dropped with a `warnings.warn`.
+- The resolver does an exact `str.find` first; fuzzy search (sliding-window rapidfuzz) is only attempted if exact fails and rapidfuzz is installed.
+- `parse_response` passes `call_fn` and `make_correction_prompt` only for `TEXT_GENERATION` endpoints; `JSON_ENFORCED` and `EXTRACTION` never retry.
