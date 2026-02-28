@@ -111,6 +111,67 @@ uv run scripts/smoke_test_llm.py
 
 ---
 
+## Evaluation
+
+The `tei_annotator.evaluation` module compares annotator output against a manually annotated gold-standard TEI XML file to compute **precision**, **recall**, and **F1 score**.
+
+### How it works
+
+For each gold-standard element (e.g. `<bibl>`):
+
+1. Extract gold spans — walk the element tree and record `(tag, start, end, text)` for every descendant element, using character offsets in the element's plain text.
+2. Strip all tags → plain text (identical to what the annotator will see).
+3. Run `annotate()` on the plain text.
+4. Extract predicted spans from the annotated XML output.
+5. Greedily match predicted spans against gold spans; compute TP / FP / FN.
+
+Because the annotator receives *exactly the same plain text* that the gold spans are anchored to, character offsets align without any additional normalisation.
+
+### Match modes
+
+| Mode | A match if… |
+| --- | --- |
+| `TEXT` (default) | same element tag + normalised text content |
+| `EXACT` | same element tag + identical `(start, end)` offsets |
+| `OVERLAP` | same element tag + intersection-over-union ≥ threshold (default 0.5) |
+
+### Quick example
+
+```python
+from tei_annotator import create_schema, EndpointConfig, EndpointCapability
+from tei_annotator.evaluation import evaluate_file, MatchMode
+
+schema = create_schema("schema/tei-bib.rng", element="biblStruct", depth=1)
+
+endpoint = EndpointConfig(
+    capability=EndpointCapability.TEXT_GENERATION,
+    call_fn=my_call_fn,
+)
+
+per_record, overall = evaluate_file(
+    gold_xml_path="tests/fixtures/blbl-examples.tei.xml",
+    schema=schema,
+    endpoint=endpoint,
+    match_mode=MatchMode.TEXT,
+    max_items=10,   # optional: evaluate only the first N records
+)
+
+print(overall.report())
+# === Evaluation Results ===
+# Micro  P=0.821  R=0.754  F1=0.786  (TP=83  FP=18  FN=27)
+# Macro  P=0.834  R=0.762  F1=0.791
+#
+# Per-element breakdown:
+#   author               P=0.923  R=0.960  F1=0.941  (TP=24  FP=2  FN=1)
+#   biblScope            P=0.750  R=0.600  F1=0.667  (TP=12  FP=4  FN=8)
+#   date                 P=0.867  R=0.867  F1=0.867  (TP=13  FP=2  FN=2)
+#   ...
+```
+
+`EvaluationResult` exposes both **micro-averaged** metrics (aggregate TP/FP/FN counts, then compute rates — correct for imbalanced element-type distributions) and **macro-averaged** metrics (average per-element rates — weights all types equally). The full span lists (`matched`, `unmatched_gold`, `unmatched_pred`) are available for detailed inspection.
+
+---
+
 ## Testing
 
 ```bash

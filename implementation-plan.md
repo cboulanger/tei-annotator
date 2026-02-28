@@ -392,3 +392,114 @@ Run with `uv run scripts/smoke_test_llm.py`.
 - `_build_nesting_tree` in `injector.py` uses a sort-by-(start-asc, length-desc) + stack algorithm; partial overlaps are dropped with a `warnings.warn`.
 - The resolver does an exact `str.find` first; fuzzy search (sliding-window rapidfuzz) is only attempted if exact fails and rapidfuzz is installed.
 - `parse_response` passes `call_fn` and `make_correction_prompt` only for `TEXT_GENERATION` endpoints; `JSON_ENFORCED` and `EXTRACTION` never retry.
+
+---
+
+## RNG Schema Parsing (`tei_annotator/tei.py`)
+
+**Added 2026-02-28** — `create_schema()` parses a RELAX NG schema file and produces a `TEISchema` for use with `annotate()`.
+
+### Function signature
+
+```python
+def create_schema(
+    schema_path: str | Path,
+    element: str = "text",
+    depth: int = 1,
+) -> TEISchema
+```
+
+- `schema_path` — path to a `.rng` file (e.g. `schema/tei-bib.rng`).
+- `element` — name of the root TEI element to start from (default: `"text"`).
+- `depth` — how many levels of descendant elements to include. `depth=1` adds the root element **and** its direct children; `depth=2` adds grandchildren too; `depth=0` adds only the root itself.
+- Raises `ValueError` if the element is not found in the schema.
+
+### How it works
+
+1. Parses the `.rng` with lxml, builds a `{define_name: element_node}` lookup table.
+2. Builds a reverse map from TEI element names (e.g. `"persName"`) to their RNG define names (e.g. `"tbibpersName"`).
+3. BFS from the requested element, collecting `TEIElement` entries level by level up to `depth`.
+4. For each element:
+   - **description** — extracted from the first `<a:documentation>` child inside the RNG `<element>` node.
+   - **`allowed_children`** — content-model `<ref>` nodes are expanded recursively through macro/model groups; attribute-group refs (names containing `"att."`) are skipped; element-bearing defines are short-circuited (just record the element name, don't recurse — correctly handles self-referential elements like `idno`).
+   - **`attributes`** — attribute-group refs are followed recursively; inline `<attribute>` elements are also collected; `required` is inferred from the immediate parent (`<optional>` / `<zeroOrMore>` → False, otherwise True); `allowed_values` comes from `<choice><value>` enumeration inside the attribute definition.
+5. Deduplicates children and attributes (preserving order) before constructing each `TEIElement`.
+
+### Tests (`tests/test_tei.py`)
+
+15 unit tests — run in < 0.05 s, no network, no model downloads:
+
+- `idno` (leaf-like, self-referential, enumerated `type` values: `ISBN`, `ISSN`, `DOI`, …)
+- `biblStruct` (explicit named children: `analytic`, `monogr`, `series`, `relatedItem`, `citedRange`; plus model-group expansion: `note`, `ptr`)
+- `depth=0` vs `depth=1` behaviour
+- Duplicate element / attribute detection
+- Unknown element raises `ValueError`
+
+Total unit tests after this addition: **78** (63 original + 15 new).
+
+---
+
+## Evaluation Module (`tei_annotator/evaluation/`)
+
+**Added 2026-02-28** — compares annotator output against a gold-standard TEI XML file to compute precision, recall, and F1 score.
+
+### Package structure
+
+```
+tei_annotator/evaluation/
+├── __init__.py        # public API exports
+├── extractor.py       # EvaluationSpan, extract_spans(), spans_from_xml_string()
+├── metrics.py         # MatchMode, SpanMatch, ElementMetrics, EvaluationResult,
+│                      # match_spans(), compute_metrics(), aggregate()
+└── evaluator.py       # evaluate_bibl(), evaluate_file()
+```
+
+### Algorithm
+
+For each gold-standard element (e.g. `<bibl>`):
+
+1. **Extract gold spans** — walk the element tree, record `(tag, start, end, text)` for every descendant element using absolute char offsets in the element's plain text (`"".join(element.itertext())`).
+2. **Strip tags** — the same plain text is passed to `annotate()`.
+3. **Annotate** — run the full pipeline with the injected `EndpointConfig`.
+4. **Extract predicted spans** — parse `result.xml` as `<_root>…</_root>`, then run the same span extractor.
+5. **Match** — greedily pair (gold, pred) spans by score (highest first); each span matched at most once.
+6. **Compute metrics** — count TP/FP/FN per element type; derive precision, recall, F1.
+
+### Match modes (`MatchMode`)
+
+| Mode | A match if… |
+| --- | --- |
+| `TEXT` (default) | same element tag + normalised text content |
+| `EXACT` | same element tag + identical `(start, end)` offsets |
+| `OVERLAP` | same element tag + IoU ≥ `overlap_threshold` (default 0.5) |
+
+### Key entry points
+
+```python
+# Single element evaluation (lxml element)
+result = evaluate_bibl(gold_element, schema, endpoint, gliner_model=None)
+print(result.report())
+
+# Full file evaluation
+per_record, overall = evaluate_file(
+    "tests/fixtures/blbl-examples.tei.xml",
+    schema=schema,
+    endpoint=endpoint,
+    max_items=10,   # optional — first N bibls only
+)
+print(overall.report())
+```
+
+`EvaluationResult` exposes:
+
+- `micro_precision / micro_recall / micro_f1` — aggregate counts, then compute rates
+- `macro_precision / macro_recall / macro_f1` — average per-element rates
+- `per_element: dict[str, ElementMetrics]` — per-element breakdown
+- `matched / unmatched_gold / unmatched_pred` — full span lists for inspection
+- `report()` — human-readable summary string
+
+### Evaluation Tests
+
+39 new unit tests in `tests/test_evaluation.py` — all mocked, run in < 0.1 s.
+
+Total unit tests: **117** (78 + 39).
