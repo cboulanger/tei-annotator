@@ -107,7 +107,7 @@ Merges a list of `EvaluationResult` objects (one per document record) into a sin
 
 ## High-level API (`evaluator.py`)
 
-### `evaluate_bibl(element, schema, endpoint, match_mode)`
+### `evaluate_element(element, schema, endpoint, match_mode)`
 
 Evaluates annotation of a single lxml `_Element`. Handles:
 
@@ -120,7 +120,7 @@ Evaluates an entire TEI XML file:
 
 1. Parses the XML file with lxml.
 2. Finds all first-level child elements of the root.
-3. Calls `evaluate_bibl()` on each, up to `max_items`.
+3. Calls `evaluate_element()` on each, up to `max_items`.
 4. Returns `(list[EvaluationResult], EvaluationResult)` — individual results per record and the corpus-level aggregate.
 
 ---

@@ -14,7 +14,7 @@ Typical usage::
     print(overall.report())
 """
 
-from .evaluator import evaluate_bibl, evaluate_file
+from .evaluator import evaluate_element, evaluate_file
 from .extractor import EvaluationSpan, extract_spans, spans_from_xml_string
 from .metrics import (
     ElementMetrics,
@@ -40,6 +40,6 @@ __all__ = [
     "compute_metrics",
     "aggregate",
     # Evaluator
-    "evaluate_bibl",
+    "evaluate_element",
     "evaluate_file",
 ]

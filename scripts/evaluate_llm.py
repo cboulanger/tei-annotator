@@ -239,7 +239,7 @@ def run_evaluation(
     import warnings
     from lxml import etree
 
-    from tei_annotator.evaluation import evaluate_bibl, aggregate, MatchMode
+    from tei_annotator.evaluation import evaluate_element, aggregate, MatchMode
     from tei_annotator.evaluation.extractor import extract_spans
     from tei_annotator.inference.endpoint import EndpointCapability, EndpointConfig
 
@@ -290,7 +290,7 @@ def run_evaluation(
                     "ignore",
                     message="Output XML validation failed",
                 )
-                result = evaluate_bibl(
+                result = evaluate_element(
                     gold_element=bibl,
                     schema=schema,
                     endpoint=endpoint,

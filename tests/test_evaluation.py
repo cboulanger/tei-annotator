@@ -22,7 +22,7 @@ from tei_annotator.evaluation.metrics import (
     compute_metrics,
     match_spans,
 )
-from tei_annotator.evaluation.evaluator import evaluate_bibl
+from tei_annotator.evaluation.evaluator import evaluate_element
 from tei_annotator.inference.endpoint import EndpointCapability, EndpointConfig
 from tei_annotator.models.schema import TEIElement, TEISchema
 
@@ -326,10 +326,10 @@ class TestAggregate:
 
 
 # ---------------------------------------------------------------------------
-# evaluator — evaluate_bibl (mocked endpoint)
+# evaluator — evaluate_element (mocked endpoint)
 # ---------------------------------------------------------------------------
 
-class TestEvaluateBibl:
+class TestEvaluateElement:
     def _schema(self, *tags):
         return _schema(*tags)
 
@@ -342,7 +342,7 @@ class TestEvaluateBibl:
             {"element": "author", "text": "Smith", "context": "Smith, 2020.", "attrs": {}},
             {"element": "date", "text": "2020", "context": "Smith, 2020.", "attrs": {}},
         ])
-        result = evaluate_bibl(root, schema, endpoint, gliner_model=None)
+        result = evaluate_element(root, schema, endpoint, gliner_model=None)
         assert result.micro_f1 == pytest.approx(1.0)
         assert result.micro_precision == 1.0
         assert result.micro_recall == 1.0
@@ -355,7 +355,7 @@ class TestEvaluateBibl:
         endpoint = _mock_endpoint([
             {"element": "author", "text": "Smith", "context": "Smith, 2020.", "attrs": {}},
         ])
-        result = evaluate_bibl(root, schema, endpoint, gliner_model=None)
+        result = evaluate_element(root, schema, endpoint, gliner_model=None)
         assert result.micro_precision == 1.0
         assert result.micro_recall == pytest.approx(0.5)
 
@@ -368,7 +368,7 @@ class TestEvaluateBibl:
             {"element": "author", "text": "Smith", "context": "Smith.", "attrs": {}},
             {"element": "date", "text": "Smith", "context": "Smith.", "attrs": {}},
         ])
-        result = evaluate_bibl(root, schema, endpoint, gliner_model=None)
+        result = evaluate_element(root, schema, endpoint, gliner_model=None)
         assert result.micro_recall == 1.0
         assert result.micro_precision == pytest.approx(0.5)
 
@@ -377,7 +377,7 @@ class TestEvaluateBibl:
         root = _parse(gold_xml)
         schema = self._schema("author")
         endpoint = _mock_endpoint([])
-        result = evaluate_bibl(root, schema, endpoint, gliner_model=None)
+        result = evaluate_element(root, schema, endpoint, gliner_model=None)
         assert result.micro_precision == 0.0
         assert result.micro_recall == 0.0
         assert result.micro_f1 == 0.0
@@ -390,7 +390,7 @@ class TestEvaluateBibl:
         endpoint = _mock_endpoint([
             {"element": "editor", "text": "Smith", "context": "Smith.", "attrs": {}},
         ])
-        result = evaluate_bibl(root, schema, endpoint, gliner_model=None)
+        result = evaluate_element(root, schema, endpoint, gliner_model=None)
         assert result.micro_f1 == 0.0
 
     def test_attributes_not_required_for_text_match(self):
@@ -402,7 +402,7 @@ class TestEvaluateBibl:
         endpoint = _mock_endpoint([
             {"element": "title", "text": "My Title", "context": "My Title.", "attrs": {}},
         ])
-        result = evaluate_bibl(root, schema, endpoint, gliner_model=None, match_mode=MatchMode.TEXT)
+        result = evaluate_element(root, schema, endpoint, gliner_model=None, match_mode=MatchMode.TEXT)
         assert result.micro_f1 == pytest.approx(1.0)
 
     def test_exact_match_mode(self):
@@ -414,7 +414,7 @@ class TestEvaluateBibl:
         endpoint = _mock_endpoint([
             {"element": "author", "text": "Smith", "context": "Smith.", "attrs": {}},
         ])
-        result = evaluate_bibl(root, schema, endpoint, gliner_model=None, match_mode=MatchMode.EXACT)
+        result = evaluate_element(root, schema, endpoint, gliner_model=None, match_mode=MatchMode.EXACT)
         # Offsets align (same plain text) → should match
         assert result.micro_f1 == pytest.approx(1.0)
 
@@ -424,7 +424,7 @@ class TestEvaluateBibl:
         root = _parse(gold_xml)
         schema = self._schema("author")
         endpoint = _mock_endpoint([])
-        result = evaluate_bibl(root, schema, endpoint, gliner_model=None)
+        result = evaluate_element(root, schema, endpoint, gliner_model=None)
         # No gold spans, no pred spans → vacuously perfect
         assert result.micro_tp == 0
         assert result.micro_fp == 0

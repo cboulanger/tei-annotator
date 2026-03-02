@@ -1,11 +1,11 @@
 """
 evaluator.py — High-level evaluation entry points.
 
-evaluate_bibl(gold_element, schema, endpoint, ...)
+evaluate_element(gold_element, schema, endpoint, ...)
     Evaluate annotation of a single XML element against its gold standard.
 
 evaluate_file(gold_xml_path, schema, endpoint, ...)
-    Evaluate annotation of every <bibl> in a TEI file's <listBibl>.
+    Evaluate annotation of every child element inside a container element.
     Returns per-record results and corpus-level aggregated metrics.
 
 Both functions follow the same pipeline:
@@ -69,7 +69,7 @@ from .metrics import EvaluationResult, MatchMode, aggregate, compute_metrics
 _TEI_NS = "http://www.tei-c.org/ns/1.0"
 
 
-def evaluate_bibl(
+def evaluate_element(
     gold_element: etree._Element,
     schema: TEISchema,
     endpoint: EndpointConfig,
@@ -124,7 +124,7 @@ def evaluate_bibl(
     # annotate() returns a fragment (no root element), so we wrap it.
     # Escape any '<'/'>' whose tag name is not in the schema — these are
     # literal text characters that lxml would otherwise parse as elements
-    # (e.g. &lt;italic&gt; in gold-standard bibls becomes raw '<italic>').
+    # (e.g. &lt;italic&gt; in gold-standard elements becomes raw '<italic>').
     allowed_tags = frozenset(e.tag for e in schema.elements)
     safe_xml = _escape_nonschema_brackets(result.xml, allowed_tags)
     try:
@@ -219,7 +219,7 @@ def evaluate_file(
 
     per_record: list[EvaluationResult] = []
     for element in all_children:
-        result = evaluate_bibl(
+        result = evaluate_element(
             gold_element=element,
             schema=schema,
             endpoint=endpoint,
