@@ -140,7 +140,13 @@ def _build_schema():
         elements=[
             TEIElement(
                 tag="label",
-                description="The number of a reference or of a footnote, preceeding the reference",
+                description=(
+                    "A numeric or alphanumeric reference label appearing at the very start of a "
+                    "bibliographic entry, before any author or title. Typical forms: a plain number "
+                    "('17'), a number with a trailing period ('17.'), a number in square brackets "
+                    "('[77]', '[ACL30]'), or a compound number ('5,6'). The separator that follows "
+                    "the label (period, dash, or space) is NOT part of the label."
+                ),
                 allowed_children=[],
                 attributes=[],
             ),
@@ -399,7 +405,8 @@ def run_evaluation(
             _ok = True
 
     if _buf is not None:
-        output_file.write_text(_buf.getvalue(), encoding="utf-8")
+        with open(output_file, "a", encoding="utf-8") as _fh:
+            _fh.write(_buf.getvalue())
         print(f"\n  Output written to: {output_file}")
 
     return _ok
@@ -490,6 +497,9 @@ def main() -> int:
     if not providers:
         print("ERROR: No providers configured — check your .env file.", file=sys.stderr)
         return 1
+
+    if args.output_file:
+        Path(args.output_file).write_text("", encoding="utf-8")
 
     results: list[bool] = []
     for name, fn in providers:
