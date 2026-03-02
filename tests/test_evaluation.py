@@ -429,3 +429,19 @@ class TestEvaluateElement:
         assert result.micro_tp == 0
         assert result.micro_fp == 0
         assert result.micro_fn == 0
+
+    def test_ampersand_in_text_is_escaped(self):
+        """Bare & in annotated output must be escaped to &amp; so lxml can parse it."""
+        # lxml decodes &amp; → & when reading the gold file, and the annotator
+        # passes that raw & through into its XML output.  _escape_nonschema_brackets
+        # must escape it before we wrap the fragment in a synthetic root element.
+        gold_xml = "<bibl><author>A &amp; B</author>.</bibl>"
+        root = _parse(gold_xml)
+        schema = self._schema("author")
+        # plain text = "A & B." — the annotator sees the literal ampersand
+        endpoint = _mock_endpoint([
+            {"element": "author", "text": "A & B", "context": "A & B.", "attrs": {}},
+        ])
+        result = evaluate_element(root, schema, endpoint, gliner_model=None)
+        # Should parse successfully and match the gold author span
+        assert result.micro_f1 == pytest.approx(1.0)

@@ -35,28 +35,32 @@ _XML_TAG_RE = re.compile(
 
 def _escape_nonschema_brackets(fragment: str, allowed_tags: frozenset[str]) -> str:
     """
-    Escape ``<`` / ``>`` characters in *fragment* whose element name is NOT in
-    *allowed_tags* (i.e. not injected by the annotator).
+    Escape ``&``, ``<``, and ``>`` in the text portions of *fragment* that are
+    not part of a valid schema tag.
 
-    This prevents spurious elements from literal text like ``<italic>`` that
-    lxml converts from XML entities (``&lt;italic&gt;``) in gold-standard files.
-    Tags with names in *allowed_tags* (schema elements) are left untouched.
-    Comments (``<!-- ... -->``) are also left untouched.
+    - ``&`` → ``&amp;``  (bare ampersands are invalid XML; must be escaped first)
+    - ``<`` / ``>`` whose element name is NOT in *allowed_tags* → ``&lt;`` / ``&gt;``
+
+    Tags with names in *allowed_tags* (injected by the annotator) and XML comments
+    are left untouched.  This handles literal text like ``A & B`` or ``<italic>``
+    that originates from decoded XML entities in gold-standard files.
     """
+    def _escape_text(t: str) -> str:
+        # & must be replaced before < / > to avoid double-encoding
+        return t.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
     parts: list[str] = []
     last = 0
     for m in _XML_TAG_RE.finditer(fragment):
-        text = fragment[last : m.start()]
-        parts.append(text.replace("<", "&lt;").replace(">", "&gt;"))
-        # m.group(2) is the tag name; group(2) is None for comments
+        parts.append(_escape_text(fragment[last : m.start()]))
+        # m.group(2) is the tag name; None for comments
         tag_name = m.group(2)
         if tag_name is None or tag_name in allowed_tags:
             parts.append(m.group())   # keep it as real XML
         else:
-            parts.append(m.group().replace("<", "&lt;").replace(">", "&gt;"))
+            parts.append(_escape_text(m.group()))
         last = m.end()
-    text = fragment[last:]
-    parts.append(text.replace("<", "&lt;").replace(">", "&gt;"))
+    parts.append(_escape_text(fragment[last:]))
     return "".join(parts)
 
 from ..inference.endpoint import EndpointConfig
