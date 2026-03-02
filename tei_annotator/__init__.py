@@ -5,7 +5,7 @@ tei-annotator: TEI XML annotation library using a two-stage LLM pipeline.
 from .inference.endpoint import EndpointCapability, EndpointConfig
 from .models.schema import TEIAttribute, TEIElement, TEISchema
 from .models.spans import ResolvedSpan, SpanDescriptor
-from .pipeline import AnnotationResult, annotate
+from .pipeline import AnnotationResult, annotate, preload_gliner_model
 from .tei import create_schema
 from .evaluation import (
     EvaluationSpan,
@@ -25,6 +25,7 @@ from .evaluation import (
 __all__ = [
     "annotate",
     "AnnotationResult",
+    "preload_gliner_model",
     "create_schema",
     "TEISchema",
     "TEIElement",

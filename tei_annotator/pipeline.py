@@ -121,6 +121,29 @@ def _run_gliner(
         return []
 
 
+def preload_gliner_model(model_id: str) -> None:
+    """
+    Load and cache a GLiNER model before the first :func:`annotate` call.
+
+    Calling this explicitly avoids paying the model-loading cost inside the
+    first annotation of a batch run.  Safe to call multiple times for the same
+    *model_id* — subsequent calls are no-ops.
+
+    Raises a :class:`UserWarning` (rather than an error) if the ``gliner``
+    extra is not installed.
+    """
+    try:
+        from .detection.gliner_detector import preload_model
+
+        preload_model(model_id)
+    except ImportError:
+        warnings.warn(
+            "gliner is not installed; cannot preload GLiNER model. "
+            "Install it with: pip install tei-annotator[gliner]",
+            stacklevel=2,
+        )
+
+
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------

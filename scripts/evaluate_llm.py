@@ -14,8 +14,8 @@ Providers:
   • KISSKI llama-3.3-70b-instruct (KISSKI_API_KEY)
 
 Usage:
-    uv run scripts/evaluate_llm.py [--max-items N] [--match-mode text|exact|overlap]
-    python scripts/evaluate_llm.py --max-items 10
+    uv run scripts/evaluate_llm.py [--max-items N] [--match-mode text|exact|overlap] [--gliner-model MODEL]
+    python scripts/evaluate_llm.py --max-items 10 --gliner-model numind/NuNER_Zero
 
 API keys are read from .env in the project root.
 """
@@ -138,6 +138,12 @@ def _build_schema():
     return TEISchema(
         elements=[
             TEIElement(
+                tag="label",
+                description="The number of a reference or of a footnote, preceeding the reference",
+                allowed_children=[],
+                attributes=[],
+            ),
+            TEIElement(
                 tag="author",
                 description="Name of an author of the cited work.",
                 allowed_children=[],
@@ -230,15 +236,17 @@ def run_evaluation(
     call_fn,
     match_mode_str: str,
     max_items: int | None,
+    gliner_model: str | None = None,
 ) -> bool:
     """
-    Evaluate one provider: iterate over gold bibl records with live progress,
+    Evaluate one provider: iterate over gold records with live progress,
     then print overall and per-element metrics.
     Returns True on success, False if a fatal exception occurred.
     """
     import warnings
     from lxml import etree
 
+    from tei_annotator import preload_gliner_model
     from tei_annotator.evaluation import evaluate_element, aggregate, MatchMode
     from tei_annotator.evaluation.extractor import extract_spans
     from tei_annotator.inference.endpoint import EndpointCapability, EndpointConfig
@@ -274,14 +282,20 @@ def run_evaluation(
     print(f"  Provider  : {provider_name}")
     print(f"  Gold file : {GOLD_FILE.relative_to(_REPO)}")
     print(f"  Records   : {n_total}   match-mode: {match_mode_str}")
+    print(f"  GLiNER    : {gliner_model or 'disabled'}")
     print(sep)
+
+    if gliner_model:
+        print(f"  Loading GLiNER model '{gliner_model}'...", flush=True)
+        preload_gliner_model(gliner_model)
+        print(f"  GLiNER model ready.")
 
     per_record = []
     failed = 0
     for i, bibl in enumerate(all_bibls, 1):
         plain_text = "".join(bibl.itertext())
         snippet = plain_text[:60].replace("\n", " ")
-        print(f"  [{i:3d}/{n_total}] {snippet}...", end="\r", flush=True)
+        print(f"  [{i:3d}/{n_total}] {snippet}...", end="\r\n", flush=True)
         try:
             # Suppress the pipeline's best-effort XML validation warning here;
             # it surfaces again in the evaluator warning if parsing fails.
@@ -294,7 +308,7 @@ def run_evaluation(
                     gold_element=bibl,
                     schema=schema,
                     endpoint=endpoint,
-                    gliner_model=None,
+                    gliner_model=gliner_model,
                     match_mode=match_mode,
                 )
             per_record.append(result)
@@ -357,6 +371,15 @@ def _parse_args() -> argparse.Namespace:
         help="Span matching criterion.",
     )
     p.add_argument(
+        "--gliner-model",
+        default=None,
+        metavar="MODEL",
+        help=(
+            "HuggingFace GLiNER model ID for the optional pre-detection pass "
+            "(e.g. 'numind/NuNER_Zero'). Omit to disable."
+        ),
+    )
+    p.add_argument(
         "--provider",
         choices=["gemini", "kisski", "all"],
         default="all",
@@ -402,6 +425,7 @@ def main() -> int:
             call_fn=fn,
             match_mode_str=args.match_mode,
             max_items=args.max_items,
+            gliner_model=args.gliner_model,
         )
         results.append(ok)
 

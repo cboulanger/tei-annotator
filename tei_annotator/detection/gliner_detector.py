@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import warnings as _warnings
+
 from ..models.schema import TEISchema
 from ..models.spans import SpanDescriptor
 
@@ -10,6 +12,25 @@ except ImportError as _e:
         "The 'gliner' package is required for GLiNER detection. "
         "Install it with: pip install tei-annotator[gliner]"
     ) from _e
+
+_model_cache: dict[str, _GLiNER] = {}
+
+
+def _load_model(model_id: str) -> _GLiNER:
+    if model_id not in _model_cache:
+        with _warnings.catch_warnings():
+            _warnings.filterwarnings(
+                "ignore",
+                message=".*resume_download.*",
+                category=UserWarning,
+            )
+            _model_cache[model_id] = _GLiNER.from_pretrained(model_id)
+    return _model_cache[model_id]
+
+
+def preload_model(model_id: str) -> None:
+    """Load and cache the GLiNER model; safe to call multiple times for the same ID."""
+    _load_model(model_id)
 
 
 def detect_spans(
@@ -28,7 +49,7 @@ def detect_spans(
         - "urchade/gliner_medium-v2.1"                (Apache-2.0, balanced)
         - "knowledgator/gliner-multitask-large-v0.5"  (adds relation extraction)
     """
-    model = _GLiNER.from_pretrained(model_id)
+    model = _load_model(model_id)
 
     # Map TEI element descriptions to their tags
     labels = [elem.description for elem in schema.elements]
