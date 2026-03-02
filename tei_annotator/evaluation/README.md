@@ -8,7 +8,7 @@ The `evaluation` module measures how accurately the annotator reproduces a hand-
 
 For each gold element (e.g. a `<biblStruct>` record in the gold file):
 
-```
+```text
 Gold XML element
       │
       ▼
@@ -56,7 +56,7 @@ Returns `(plain_text: str, spans: list[EvaluationSpan])` — the plain text is w
 Three strategies determine when a predicted span "matches" a gold span:
 
 | Mode | Match condition |
-|------|-----------------|
+|------|----------------|
 | `EXACT` | Same element tag **and** identical `(start, end)` offsets |
 | `TEXT` *(default)* | Same element tag **and** `normalized_text` is equal |
 | `OVERLAP` | Same element tag **and** intersection-over-union of offset ranges ≥ threshold (default 0.5) |
@@ -127,7 +127,7 @@ Evaluates an entire TEI XML file:
 
 ## Example output
 
-```
+```text
 === Evaluation Results ===
 Micro  P=0.821  R=0.754  F1=0.786  (TP=83  FP=18  FN=27)
 Macro  P=0.834  R=0.762  F1=0.791

@@ -15,7 +15,7 @@ Providers:
 
 Usage:
     uv run scripts/evaluate_llm.py [--max-items N] [--match-mode text|exact|overlap] [--gliner-model MODEL]
-    python scripts/evaluate_llm.py --max-items 10 --gliner-model numind/NuNER_Zero
+    python scripts/evaluate_llm.py --max-items 10 --gliner-model numind/NuNER_Zero --verbose
 
 API keys are read from .env in the project root.
 """
@@ -152,16 +152,67 @@ def _build_schema():
             ),
             TEIElement(
                 tag="author",
-                description="Name of an author of the cited work.",
-                allowed_children=[],
+                description=(
+                    "Name(s) of the author(s) of the cited work. "
+                    "Emit an 'author' span covering the full name text. "
+                    "Also emit separate 'surname', 'forename', or 'orgName' spans for the "
+                    "individual name parts; those spans must fall within the 'author' span's text. "
+                    "Names appearing at the start of a bibliographic entry before the title and "
+                    "date are authors. "
+                    "In a bibliography, a dash or underscore may stand for a repeated author name."
+                ),
+                allowed_children=['surname', 'forename', 'orgName'],
                 attributes=[],
             ),
             TEIElement(
                 tag="editor",
-                description="Name of an editor of the cited work.",
+                description=(
+                    "Name of an editor of the cited work. "
+                    "Emit an 'editor' span covering the full name text; also emit separate "
+                    "'surname', 'forename', or 'orgName' spans for the individual name parts — "
+                    "those spans must fall within the 'editor' span's text. "
+                    "An editor's name typically follows keywords such as 'in', 'ed.', 'éd.', "
+                    "'Hrsg.', 'dir.', '(ed.)', '(eds.)'. "
+                    "Do NOT annotate an editor's name as 'title': a person's name after 'in' is "
+                    "an editor, not a title. "
+                    "In a bibliography, a dash or underscore may stand for a repeated editor name."
+                ),
+                allowed_children=['surname', 'forename', 'orgName'],
+                attributes=[],
+            ),
+            TEIElement(
+                tag="surname",
+                description=(
+                    "The inherited (family) name of a person. "
+                    "Always emit together with an enclosing 'author' or 'editor' span covering "
+                    "the full name — never emit a 'surname' span without a corresponding "
+                    "'author' or 'editor' span."
+                ),
                 allowed_children=[],
                 attributes=[],
             ),
+            TEIElement(
+                tag="forename",
+                description=(
+                    "The given (first) name or initials of a person. "
+                    "Always emit together with an enclosing 'author' or 'editor' span covering "
+                    "the full name — never emit a 'forename' span without a corresponding "
+                    "'author' or 'editor' span."
+                ),
+                allowed_children=[],
+                attributes=[],
+            ),
+            TEIElement(
+                tag="orgName",
+                description=(
+                    "Name of an organisation. "
+                    "When the organisation is an author or editor of the cited work, always emit "
+                    "together with an enclosing 'author' or 'editor' span — never emit 'orgName' "
+                    "alone in that role."
+                ),
+                allowed_children=[],
+                attributes=[],
+            ),                              
             TEIElement(
                 tag="title",
                 description="Title of the cited work.",
@@ -195,7 +246,10 @@ def _build_schema():
             ),
             TEIElement(
                 tag="biblScope",
-                description="Scope reference within the cited item (page range, volume, issue).",
+                description=(
+                    "Scope reference within the cited item (page range, volume, issue). "
+                    "Emit a separate biblScope span for volume and issue.  "
+                    ),
                 allowed_children=[],
                 attributes=[
                     attr(
@@ -223,12 +277,6 @@ def _build_schema():
                 allowed_children=[],
                 attributes=[attr("type", "Type of pointer, e.g. 'web'.")],
             ),
-            TEIElement(
-                tag="orgName",
-                description="Name of an organisation.",
-                allowed_children=[],
-                attributes=[],
-            ),
         ]
     )
 
@@ -244,7 +292,7 @@ def run_evaluation(
     match_mode_str: str,
     max_items: int | None,
     gliner_model: str | None = None,
-    show_annotations: bool = False,
+    verbose: bool = False,
     output_file: Path | None = None,
 ) -> bool:
     """
@@ -348,7 +396,7 @@ def run_evaluation(
                         gliner_model=gliner_model,
                         match_mode=match_mode,
                     )
-                if show_annotations and result.annotation_xml is not None:
+                if verbose and result.annotation_xml is not None and result.micro_f1 < 1.0:
                     sep60 = "─" * 60
                     gold_parts = [bibl.text or ""]
                     for child in bibl:
@@ -388,8 +436,11 @@ def run_evaluation(
             print(overall.report(title=f"Overall — {provider_name}"))
 
             # Show the five worst records (by F1) for diagnostics
-            worst = sorted(enumerate(per_record, 1), key=lambda x: x[1].micro_f1)[:5]
-            if worst and worst[0][1].micro_f1 < 1.0:
+            worst = sorted(
+                [(i, r) for i, r in enumerate(per_record, 1) if r.micro_f1 < 1.0],
+                key=lambda x: x[1].micro_f1,
+            )[:5]
+            if worst:
                 print(f"\n  Lowest-F1 records (top 5):")
                 for idx, r in worst:
                     gold_bibl = all_bibls[idx - 1]
@@ -445,10 +496,10 @@ def _parse_args() -> argparse.Namespace:
         ),
     )
     p.add_argument(
-        "--show-annotations",
+        "--verbose",
         action="store_true",
         default=False,
-        help="Print the annotated XML output for each record (useful for inspection runs).",
+        help="Print annotated XML for each record where F1 < 1.0 (useful for inspection runs).",
     )
     p.add_argument(
         "--output-file",
@@ -509,7 +560,7 @@ def main() -> int:
             match_mode_str=args.match_mode,
             max_items=args.max_items,
             gliner_model=args.gliner_model,
-            show_annotations=args.show_annotations,
+            verbose=args.verbose,
             output_file=Path(args.output_file) if args.output_file else None,
         )
         results.append(ok)
