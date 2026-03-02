@@ -144,12 +144,14 @@ def evaluate_element(
     _, pred_spans = extract_spans(pred_root)
 
     # Step 5 — match and compute metrics
-    return compute_metrics(
+    eval_result = compute_metrics(
         gold_spans,
         pred_spans,
         mode=match_mode,
         overlap_threshold=overlap_threshold,
     )
+    eval_result.annotation_xml = result.xml
+    return eval_result
 
 
 def evaluate_file(

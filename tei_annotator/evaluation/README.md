@@ -141,3 +141,12 @@ Per-element breakdown:
 ```
 
 The `matched`, `unmatched_gold`, and `unmatched_pred` lists on each `EvaluationResult` are available for detailed error analysis beyond the summary table.
+
+### Terminology
+
+| Term         | Field            | Meaning                                                                   |
+|--------------|------------------|---------------------------------------------------------------------------|
+| **missed**   | `unmatched_gold` | False negatives — gold spans the model **failed to annotate**             |
+| **spurious** | `unmatched_pred` | False positives — predicted spans that have **no counterpart in the gold** |
+
+Missed spans hurt **recall**; spurious spans hurt **precision**.

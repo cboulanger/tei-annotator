@@ -88,6 +88,7 @@ class EvaluationResult:
     unmatched_gold: list[EvaluationSpan]   # false negatives
     unmatched_pred: list[EvaluationSpan]   # false positives
     per_element: dict[str, ElementMetrics] = field(default_factory=dict)
+    annotation_xml: str | None = None      # raw annotator output; None on aggregates
 
     # ------------------------------------------------------------------
     # Micro-averaged (aggregate raw counts, then compute rates)

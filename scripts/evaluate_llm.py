@@ -237,6 +237,7 @@ def run_evaluation(
     match_mode_str: str,
     max_items: int | None,
     gliner_model: str | None = None,
+    show_annotations: bool = False,
 ) -> bool:
     """
     Evaluate one provider: iterate over gold records with live progress,
@@ -311,6 +312,15 @@ def run_evaluation(
                     gliner_model=gliner_model,
                     match_mode=match_mode,
                 )
+            if show_annotations and result.annotation_xml is not None:
+                sep60 = "─" * 60
+                print(f"\n  {sep60}")
+                print(f"  Annotation:")
+                print(f"  {result.annotation_xml}")
+                print(f"  F1={result.micro_f1:.3f}  "
+                      f"missed={[s.element for s in result.unmatched_gold]}  "
+                      f"spurious={[s.element for s in result.unmatched_pred]}")
+                print(f"  {sep60}\n")
             per_record.append(result)
         except Exception as exc:
             print(f"\n  [{i:3d}/{n_total}] ERROR — {exc}")
@@ -380,6 +390,12 @@ def _parse_args() -> argparse.Namespace:
         ),
     )
     p.add_argument(
+        "--show-annotations",
+        action="store_true",
+        default=False,
+        help="Print the annotated XML output for each record (useful for inspection runs).",
+    )
+    p.add_argument(
         "--provider",
         choices=["gemini", "kisski", "all"],
         default="all",
@@ -426,6 +442,7 @@ def main() -> int:
             match_mode_str=args.match_mode,
             max_items=args.max_items,
             gliner_model=args.gliner_model,
+            show_annotations=args.show_annotations,
         )
         results.append(ok)
 
