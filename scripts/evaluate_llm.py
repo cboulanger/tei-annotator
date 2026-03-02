@@ -25,6 +25,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 import urllib.error
 import urllib.request
@@ -238,19 +239,30 @@ def run_evaluation(
     max_items: int | None,
     gliner_model: str | None = None,
     show_annotations: bool = False,
+    output_file: Path | None = None,
 ) -> bool:
     """
     Evaluate one provider: iterate over gold records with live progress,
     then print overall and per-element metrics.
+
+    When *output_file* is set all text output is written to that file and a
+    tqdm progress bar is shown in the terminal instead of per-record lines.
+
     Returns True on success, False if a fatal exception occurred.
     """
+    import contextlib
+    import io
     import warnings
     from lxml import etree
 
     from tei_annotator import preload_gliner_model
     from tei_annotator.evaluation import evaluate_element, aggregate, MatchMode
-    from tei_annotator.evaluation.extractor import extract_spans
     from tei_annotator.inference.endpoint import EndpointCapability, EndpointConfig
+
+    try:
+        from tqdm import tqdm as _tqdm
+    except ImportError:
+        _tqdm = None
 
     _TEI_NS = "http://www.tei-c.org/ns/1.0"
 
@@ -278,83 +290,119 @@ def run_evaluation(
         all_bibls = all_bibls[:max_items]
     n_total = len(all_bibls)
 
-    sep = "─" * 64
-    print(f"\n{sep}")
-    print(f"  Provider  : {provider_name}")
-    print(f"  Gold file : {GOLD_FILE.relative_to(_REPO)}")
-    print(f"  Records   : {n_total}   match-mode: {match_mode_str}")
-    print(f"  GLiNER    : {gliner_model or 'disabled'}")
-    print(sep)
+    # --- output destination and progress display ----------------------------
+    # When --output-file: buffer all prints → file; show tqdm bar on stderr.
+    # Otherwise: print to stdout and show manual per-record progress lines.
+    _buf = io.StringIO() if output_file else None
+    _pbar = (
+        _tqdm(total=n_total, desc="Annotating", unit="rec", file=sys.stderr)
+        if output_file and _tqdm
+        else None
+    )
+    if output_file and not _tqdm:
+        print("WARNING: tqdm not installed — no progress bar. Run: pip install tqdm",
+              file=sys.stderr)
 
-    if gliner_model:
-        print(f"  Loading GLiNER model '{gliner_model}'...", flush=True)
-        preload_gliner_model(gliner_model)
-        print(f"  GLiNER model ready.")
+    _ok = False
+    with contextlib.redirect_stdout(_buf) if _buf else contextlib.nullcontext():
+        sep = "─" * 64
+        print(f"\n{sep}")
+        print(f"  Provider  : {provider_name}")
+        print(f"  Gold file : {GOLD_FILE.relative_to(_REPO)}")
+        print(f"  Records   : {n_total}   match-mode: {match_mode_str}")
+        print(f"  GLiNER    : {gliner_model or 'disabled'}")
+        print(sep)
 
-    per_record = []
-    failed = 0
-    for i, bibl in enumerate(all_bibls, 1):
-        plain_text = "".join(bibl.itertext())
-        snippet = plain_text[:60].replace("\n", " ")
-        print(f"  [{i:3d}/{n_total}] {snippet}...", end="\r\n", flush=True)
-        try:
-            # Suppress the pipeline's best-effort XML validation warning here;
-            # it surfaces again in the evaluator warning if parsing fails.
-            with warnings.catch_warnings():
-                warnings.filterwarnings(
-                    "ignore",
-                    message="Output XML validation failed",
-                )
-                result = evaluate_element(
-                    gold_element=bibl,
-                    schema=schema,
-                    endpoint=endpoint,
-                    gliner_model=gliner_model,
-                    match_mode=match_mode,
-                )
-            if show_annotations and result.annotation_xml is not None:
-                sep60 = "─" * 60
-                print(f"\n  {sep60}")
-                print(f"  Annotation:")
-                print(f"  {result.annotation_xml}")
-                print(f"  F1={result.micro_f1:.3f}  "
-                      f"missed={[s.element for s in result.unmatched_gold]}  "
-                      f"spurious={[s.element for s in result.unmatched_pred]}")
-                print(f"  {sep60}\n")
-            per_record.append(result)
-        except Exception as exc:
-            print(f"\n  [{i:3d}/{n_total}] ERROR — {exc}")
-            failed += 1
+        if gliner_model:
+            print(f"  Loading GLiNER model '{gliner_model}'...", flush=True)
+            preload_gliner_model(gliner_model)
+            print(f"  GLiNER model ready.")
 
-    # Clear the progress line
-    print(" " * 70, end="\r")
+        per_record = []
+        failed = 0
+        for i, bibl in enumerate(all_bibls, 1):
+            plain_text = "".join(bibl.itertext())
+            snippet = plain_text[:60].replace("\n", " ")
+            if _pbar:
+                _pbar.set_description(snippet[:45])
+            else:
+                print(f"  [{i:3d}/{n_total}] {snippet}...", end="\r\n", flush=True)
+            try:
+                # Suppress the pipeline's best-effort XML validation warning here;
+                # it surfaces again in the evaluator warning if parsing fails.
+                with warnings.catch_warnings():
+                    warnings.filterwarnings(
+                        "ignore",
+                        message="Output XML validation failed",
+                    )
+                    result = evaluate_element(
+                        gold_element=bibl,
+                        schema=schema,
+                        endpoint=endpoint,
+                        gliner_model=gliner_model,
+                        match_mode=match_mode,
+                    )
+                if show_annotations and result.annotation_xml is not None:
+                    sep60 = "─" * 60
+                    gold_parts = [bibl.text or ""]
+                    for child in bibl:
+                        child_xml = etree.tostring(child, encoding="unicode", with_tail=True)
+                        gold_parts.append(re.sub(r'\s+xmlns(?::\w+)?="[^"]*"', "", child_xml))
+                    gold_xml = "".join(gold_parts)
+                    print(f"\n  {sep60}")
+                    print(f"  Gold:       {gold_xml}")
+                    print(f"  Annotation: {result.annotation_xml}")
+                    print(f"  F1={result.micro_f1:.3f}  "
+                          f"missed={[s.element for s in result.unmatched_gold]}  "
+                          f"spurious={[s.element for s in result.unmatched_pred]}")
+                    print(f"  {sep60}\n")
+                per_record.append(result)
+                if _pbar:
+                    _pbar.update(1)
+                    _pbar.set_postfix(F1=f"{result.micro_f1:.3f}")
+            except Exception as exc:
+                print(f"\n  [{i:3d}/{n_total}] ERROR — {exc}")
+                failed += 1
+                if _pbar:
+                    _pbar.update(1)
 
-    if not per_record:
-        print("  ✗ All records failed — no results to report.")
-        return False
+        if _pbar:
+            _pbar.close()
+        else:
+            # Clear the progress line
+            print(" " * 70, end="\r")
 
-    overall = aggregate(per_record)
-    n_ok = len(per_record)
-    print(f"\n  Completed: {n_ok}/{n_total} records"
-          + (f"  ({failed} failed)" if failed else "") + "\n")
-    print(overall.report(title=f"Overall — {provider_name}"))
+        if not per_record:
+            print("  ✗ All records failed — no results to report.")
+        else:
+            overall = aggregate(per_record)
+            n_ok = len(per_record)
+            print(f"\n  Completed: {n_ok}/{n_total} records"
+                  + (f"  ({failed} failed)" if failed else "") + "\n")
+            print(overall.report(title=f"Overall — {provider_name}"))
 
-    # Show the five worst records (by F1) for diagnostics
-    worst = sorted(enumerate(per_record, 1), key=lambda x: x[1].micro_f1)[:5]
-    if worst and worst[0][1].micro_f1 < 1.0:
-        print(f"\n  Lowest-F1 records (top 5):")
-        for idx, r in worst:
-            gold_bibl = all_bibls[idx - 1]
-            snippet = "".join(gold_bibl.itertext())[:55].replace("\n", " ")
-            fn_tags = [s.element for s in r.unmatched_gold]
-            fp_tags = [s.element for s in r.unmatched_pred]
-            print(
-                f"    #{idx:3d}  F1={r.micro_f1:.3f}"
-                f"  missed={fn_tags}  spurious={fp_tags}"
-            )
-            print(f'         "{snippet}..."')
+            # Show the five worst records (by F1) for diagnostics
+            worst = sorted(enumerate(per_record, 1), key=lambda x: x[1].micro_f1)[:5]
+            if worst and worst[0][1].micro_f1 < 1.0:
+                print(f"\n  Lowest-F1 records (top 5):")
+                for idx, r in worst:
+                    gold_bibl = all_bibls[idx - 1]
+                    snippet = "".join(gold_bibl.itertext())[:55].replace("\n", " ")
+                    fn_tags = [s.element for s in r.unmatched_gold]
+                    fp_tags = [s.element for s in r.unmatched_pred]
+                    print(
+                        f"    #{idx:3d}  F1={r.micro_f1:.3f}"
+                        f"  missed={fn_tags}  spurious={fp_tags}"
+                    )
+                    print(f'         "{snippet}..."')
 
-    return True
+            _ok = True
+
+    if _buf is not None:
+        output_file.write_text(_buf.getvalue(), encoding="utf-8")
+        print(f"\n  Output written to: {output_file}")
+
+    return _ok
 
 
 # ---------------------------------------------------------------------------
@@ -394,6 +442,15 @@ def _parse_args() -> argparse.Namespace:
         action="store_true",
         default=False,
         help="Print the annotated XML output for each record (useful for inspection runs).",
+    )
+    p.add_argument(
+        "--output-file",
+        default=None,
+        metavar="PATH",
+        help=(
+            "Write all evaluation output to this file. "
+            "A tqdm progress bar is shown in the terminal instead of per-record lines."
+        ),
     )
     p.add_argument(
         "--provider",
@@ -443,6 +500,7 @@ def main() -> int:
             max_items=args.max_items,
             gliner_model=args.gliner_model,
             show_annotations=args.show_annotations,
+            output_file=Path(args.output_file) if args.output_file else None,
         )
         results.append(ok)
 
