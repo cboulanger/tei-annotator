@@ -145,8 +145,9 @@ def _build_schema():
             "'author' or 'editor' span.",
             "When an organisation acts as author or editor, emit BOTH an 'orgName' span AND an "
             "enclosing 'author' (or 'editor') span covering the same text.",
-            "Emit a separate 'author' span for each distinct author — never merge multiple "
-            "authors into a single span.",
+            "All name parts (surname, forename, orgName) for one or more contiguous authors "
+            "may be placed inside a single 'author' (or 'editor') span. Emit separate spans "
+            "only when authors are separated by non-name text (e.g. a title or date).",
             "In a bibliography, a dash or underscore may stand for a repeated author or editor "
             "name — tag it as 'author' or 'editor' accordingly.",
         ],

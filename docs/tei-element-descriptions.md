@@ -34,15 +34,17 @@ act at all.
 
 ---
 
-### 2. State multiplicity explicitly
+### 2. State multiplicity and grouping rules explicitly
 
-Without an explicit instruction, models default to merging all instances into
-one span.
+Without explicit instructions, models may make wrong choices about how many
+spans to emit.
 
 **Bad:** "Name(s) of the author(s) of the cited work."
 
-**Good:** "Emit a **separate** `author` span for each distinct author — never
-merge multiple authors into a single span."
+**Good:** "All name parts (`surname`, `forename`, `orgName`) for one or more
+contiguous authors may be placed inside a single `author` span. Emit a separate
+`author` span only when authors are separated by non-name text (e.g. a title or
+date between them)."
 
 This applies to any element that can appear more than once: `author`, `editor`,
 `biblScope` (volume vs. issue), `date` (publication year vs. original year), etc.
