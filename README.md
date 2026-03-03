@@ -259,7 +259,7 @@ print(overall.report())
 
 1. **Copy `_build_schema()`** and replace the element definitions with those relevant to your domain.  Each `TEIElement.description` is the primary signal the LLM uses to decide what to annotate — see [docs/tei-element-descriptions.md](docs/tei-element-descriptions.md) for evidence-based guidelines on writing effective descriptions.
 
-2. **Create a gold-standard XML file** — a TEI `<listBibl>` (or equivalent container) with a representative sample of manually annotated records.  Point `GOLD_FILE` at it.
+2. **Create a gold-standard XML file** — a TEI parent element (e.g. `<listBibl>` or equivalent container) with a representative sample of manually annotated records (such as `<bibl>` elements).  Point `GOLD_FILE` at it.
 
 3. **Add your LLM endpoint** using the existing `make_gemini_call_fn` / `make_kisski_call_fn` factories as templates, or drop in any `call_fn: (str) -> str`.
 
