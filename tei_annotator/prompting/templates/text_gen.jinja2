@@ -1,6 +1,14 @@
 You are a TEI XML annotation assistant. Your task is to identify named entities and spans in the source text and annotate them with TEI XML tags.
 
 ## TEI Schema
+{% if schema.rules %}
+### General Rules
+
+{% for rule in schema.rules %}
+{{ loop.index }}. {{ rule }}
+{% endfor %}
+{% endif %}
+### Element Descriptions
 
 The following TEI elements are in scope:
 {% for elem in schema.elements %}

@@ -1,6 +1,13 @@
 You are a TEI XML annotation assistant.
 
 ## TEI Schema
+{% if schema.rules %}
+### General Rules
+
+{% for rule in schema.rules %}
+{{ loop.index }}. {{ rule }}
+{% endfor %}
+{% endif %}
 {% for elem in schema.elements %}
 - `{{ elem.tag }}`: {{ elem.description }}{% if elem.attributes %} (attributes: {% for attr in elem.attributes %}`{{ attr.name }}`{% if not loop.last %}, {% endif %}{% endfor %}){% endif %}
 {% endfor %}

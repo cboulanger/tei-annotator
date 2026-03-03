@@ -2,8 +2,7 @@
 name: optimize-element-descriptions
 description: Iteratively improve TEIElement descriptions in _build_schema() to maximise F1 against the gold standard. Use when annotation quality is low or when evaluation shows missed or spurious spans.
 disable-model-invocation: true
-argument-hint: [--max-items N] [--provider gemini|kisski|all]
-allowed-tools: Read, Edit, Bash
+argument-hint: "--max-items N --provider gemini|kisski|all"
 ---
 
 # optimize-element-descriptions
@@ -59,6 +58,7 @@ Key principles (summary):
 - Add negative constraints: "never tag X as Y"
 - Include textual triggers (keywords, position) and inline surface-form examples
 - Prefix critical constraints with `CRITICAL:`
+- If a failure pattern affects **multiple element types**, add the constraint to `TEISchema.rules` instead of duplicating it in each element description — the prompt renders `rules` as a numbered "General Rules" section before all element descriptions.
 
 Only edit descriptions for elements where you identified a clear failure pattern.
 

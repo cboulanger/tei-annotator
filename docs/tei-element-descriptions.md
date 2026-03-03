@@ -14,10 +14,10 @@ The LLM is asked to **emit spans** — tuples of *(element name, verbatim text,
 surrounding context)*.  It never writes raw XML.  Descriptions therefore should
 be phrased in terms of *emitting a span*, not *wrapping text in a tag*.
 
-| Avoid | Prefer |
-|-------|--------|
-| "Wrap the author name in `<author>`." | "Emit an `author` span covering the full name text." |
-| "Nest `<surname>` inside `<author>`." | "The `surname` span must fall within the enclosing `author` span's text." |
+| Avoid                                   | Prefer                                                                    |
+| --------------------------------------- | ------------------------------------------------------------------------- |
+| "Wrap the author name in `<author>`."   | "Emit an `author` span covering the full name text."                      |
+| "Nest `<surname>` inside `<author>`."   | "The `surname` span must fall within the enclosing `author` span's text." |
 
 ---
 
@@ -80,10 +80,10 @@ Examples of effective negative constraints:
 
 > "A person's name (or surname alone) that follows 'in' is an editor — emit an
 > `editor` span, **never** a `title` span."
-
+>
 > "An institutional report name (e.g. 'Amok Internal Report') must be tagged as
 > `note` with type='report', **NOT** as `orgName` or `title`."
-
+>
 > "A label is always a number or short code — **never** a word or name.  An
 > ALL-CAPS word at the start of an entry is an author surname, not a label."
 
@@ -101,10 +101,10 @@ span represents semantically.
 
 > "An editor's name typically follows keywords such as 'in', 'ed.', 'éd.',
 > 'Hrsg.', 'dir.', '(ed.)', '(eds.)'."
-
+>
 > "A label appears at the very start of a bibliographic entry, before any author
 > or title."
-
+>
 > "The place of publication may appear in parentheses immediately after the
 > title, e.g. 'Title (City, Region)' — the parenthesised location is the
 > pubPlace."
@@ -119,7 +119,7 @@ text looks like:
 > "Typical label forms: a plain number ('17'), a number with a trailing period
 > ('17.'), a number in square brackets ('[77]', '[ACL30]'), or a compound number
 > ('5,6')."
-
+>
 > "Institutional report designations — such as 'Amok Internal Report', 'USGS
 > Open-File Report 97-123', or 'Technical Report No. 5' — must be tagged as
 > `note`."
@@ -133,8 +133,51 @@ when surrounding punctuation could reasonably be included:
 
 > "The separator that follows the label (period, dash, or space) is NOT part of
 > the label."
-
+>
 > "Do not include the surrounding parentheses in the pubPlace span."
+
+---
+
+### 8. Use `TEISchema.rules` for cross-element constraints
+
+When the same constraint applies to **multiple element types**, put it in
+`TEISchema.rules` rather than copying it into every element description.
+The prompt builder renders `rules` as a numbered **"General Rules"** section
+that appears before all per-element descriptions.
+
+Good candidates for `rules`:
+
+- Parent–child pairing constraints shared by several elements (e.g. "`surname`
+  and `forename` must always appear inside an enclosing `author` or `editor`
+  span")
+- Constraints that span the same surface form from both sides (e.g. the rule
+  that `orgName` requires a sibling `author`/`editor` span, stated for both
+  `author` and `orgName`)
+- Bibliographic conventions that apply across multiple roles (e.g. "a dash or
+  underscore may stand for a repeated author **or editor** name")
+
+Keep the individual element `description` focused on element-specific cues
+(triggers, surface forms, boundaries, negative constraints) and let `rules`
+carry the shared structural invariants.
+
+**Example** — in `_build_schema()`:
+
+```python
+TEISchema(
+    rules=[
+        "For each person's name, emit an 'author' or 'editor' span covering "
+        "the full name AND separate 'surname', 'forename', or 'orgName' spans "
+        "for the individual name parts within that span.",
+        "Never emit 'surname', 'forename', or 'orgName' without a corresponding "
+        "enclosing 'author' or 'editor' span.",
+    ],
+    elements=[
+        TEIElement(tag="author", description="Names appearing at the start …"),
+        TEIElement(tag="surname", description="The inherited (family) name …"),
+        # 'surname' description no longer repeats the parent-span constraint
+    ],
+)
+```
 
 ---
 
@@ -149,3 +192,4 @@ Before finalising a description, ask:
 - [ ] Are there positional or keyword triggers that help the model find the span?
 - [ ] Are edge-case surface forms illustrated with a quoted example?
 - [ ] Are span boundaries (what's in / what's out) unambiguous?
+- [ ] Are cross-element constraints factored into `TEISchema.rules` rather than duplicated across descriptions?

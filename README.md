@@ -100,7 +100,7 @@ API keys for real LLM endpoints go in `.env` (see `.env` for the expected variab
 
 ## Quick example
 
-Element descriptions are the primary signal the LLM uses to decide what to annotate and how. See [docs/tei-element-descriptions.md](docs/tei-element-descriptions.md) for guidelines on writing effective descriptions (span framing, multiplicity, parent–child span pairs, negative constraints, and more).
+Element descriptions are the primary signal the LLM uses to decide what to annotate and how. Cross-element constraints that apply to multiple span types (e.g. "always emit a `surname` span inside an enclosing `author` span") can be placed in `TEISchema.rules` instead of duplicating them in every element description — the prompt builder renders them as a numbered "General Rules" section before the per-element descriptions. See [docs/tei-element-descriptions.md](docs/tei-element-descriptions.md) for full guidelines.
 
 ```python
 from tei_annotator import (
@@ -110,18 +110,24 @@ from tei_annotator import (
 )
 
 # 1. Describe the elements you want to annotate
-schema = TEISchema(elements=[
-    TEIElement(
-        tag="persName",
-        description="a person's name",
-        attributes=[TEIAttribute(name="ref", description="authority URI")],
-    ),
-    TEIElement(
-        tag="placeName",
-        description="a geographical place name",
-        attributes=[],
-    ),
-])
+schema = TEISchema(
+    rules=[
+        # Cross-element constraints stated once, rendered before element descriptions
+        "Emit a 'surname' span within every enclosing 'persName' span.",
+    ],
+    elements=[
+        TEIElement(
+            tag="persName",
+            description="a person's name",
+            attributes=[TEIAttribute(name="ref", description="authority URI")],
+        ),
+        TEIElement(
+            tag="placeName",
+            description="a geographical place name",
+            attributes=[],
+        ),
+    ],
+)
 
 # 2. Wrap your inference endpoint
 def my_call_fn(prompt: str) -> str:

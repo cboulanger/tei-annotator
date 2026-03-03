@@ -137,6 +137,19 @@ def _build_schema():
         return TEIAttribute(name=name, description=desc, allowed_values=allowed)
 
     return TEISchema(
+        rules=[
+            "For each person's name, emit an 'author' or 'editor' span covering the full name "
+            "AND separate 'surname', 'forename', or 'orgName' spans for the individual name "
+            "parts within that span.",
+            "Never emit 'surname', 'forename', or 'orgName' without a corresponding enclosing "
+            "'author' or 'editor' span.",
+            "When an organisation acts as author or editor, emit BOTH an 'orgName' span AND an "
+            "enclosing 'author' (or 'editor') span covering the same text.",
+            "Emit a separate 'author' span for each distinct author — never merge multiple "
+            "authors into a single span.",
+            "In a bibliography, a dash or underscore may stand for a repeated author or editor "
+            "name — tag it as 'author' or 'editor' accordingly.",
+        ],
         elements=[
             TEIElement(
                 tag="label",
@@ -156,16 +169,8 @@ def _build_schema():
                 tag="author",
                 description=(
                     "Name(s) of the author(s) of the cited work. "
-                    "Emit a separate 'author' span for each distinct author — never merge multiple "
-                    "authors into a single span. "
-                    "Each 'author' span covers the full name text of one author. "
-                    "Also emit separate 'surname', 'forename', or 'orgName' spans for the "
-                    "individual name parts; those spans must fall within the 'author' span's text. "
-                    "When an organisation is the author, emit both an 'author' span and an "
-                    "'orgName' span covering the same text — never emit 'orgName' alone in that role. "
                     "Names appearing at the start of a bibliographic entry before the title and "
-                    "date are authors. "
-                    "In a bibliography, a dash or underscore may stand for a repeated author name."
+                    "date are authors."
                 ),
                 allowed_children=['surname', 'forename', 'orgName'],
                 attributes=[],
@@ -174,53 +179,32 @@ def _build_schema():
                 tag="editor",
                 description=(
                     "Name of an editor of the cited work. "
-                    "Emit an 'editor' span covering the full name text; also emit separate "
-                    "'surname', 'forename', or 'orgName' spans for the individual name parts — "
-                    "those spans must fall within the 'editor' span's text. "
                     "An editor's name typically follows keywords such as 'in', 'ed.', 'éd.', "
                     "'Hrsg.', 'dir.', '(ed.)', '(eds.)'. "
                     "CRITICAL: A person's name (or surname alone) that follows 'in' is an editor — "
-                    "emit an 'editor' span (plus name-part spans), never a 'title' span. "
-                    "In a bibliography, a dash or underscore may stand for a repeated editor name."
+                    "emit an 'editor' span (plus name-part spans), never a 'title' span."
                 ),
                 allowed_children=['surname', 'forename', 'orgName'],
                 attributes=[],
             ),
             TEIElement(
                 tag="surname",
-                description=(
-                    "The inherited (family) name of a person. "
-                    "Always emit together with an enclosing 'author' or 'editor' span covering "
-                    "the full name — never emit a 'surname' span without a corresponding "
-                    "'author' or 'editor' span."
-                ),
+                description="The inherited (family) name of a person.",
                 allowed_children=[],
                 attributes=[],
             ),
             TEIElement(
                 tag="forename",
-                description=(
-                    "The given (first) name or initials of a person. "
-                    "Always emit together with an enclosing 'author' or 'editor' span covering "
-                    "the full name — never emit a 'forename' span without a corresponding "
-                    "'author' or 'editor' span."
-                ),
+                description="The given (first) name or initials of a person.",
                 allowed_children=[],
                 attributes=[],
             ),
             TEIElement(
                 tag="orgName",
-                description=(
-                    "Name of an organisation. "
-                    "When the organisation is an author or editor of the cited work, you MUST emit "
-                    "both the 'orgName' span and an enclosing 'author' (or 'editor') span covering "
-                    "the same text. For example, if 'Acme Research Group' is an author, emit an "
-                    "'author' span AND an 'orgName' span both covering 'Acme Research Group'. "
-                    "Never emit 'orgName' alone when the organisation acts as author or editor."
-                ),
+                description="Name of an organisation.",
                 allowed_children=[],
                 attributes=[],
-            ),                              
+            ),
             TEIElement(
                 tag="title",
                 description="Title of the cited work.",
@@ -261,8 +245,8 @@ def _build_schema():
                 tag="biblScope",
                 description=(
                     "Scope reference within the cited item (page range, volume, issue). "
-                    "Emit a separate biblScope span for volume and issue.  "
-                    ),
+                    "Emit a separate biblScope span for volume and issue."
+                ),
                 allowed_children=[],
                 attributes=[
                     attr(

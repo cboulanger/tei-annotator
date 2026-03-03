@@ -22,6 +22,7 @@ class TEIElement:
 @dataclass
 class TEISchema:
     elements: list[TEIElement] = field(default_factory=list)
+    rules: list[str] = field(default_factory=list)
 
     def get(self, tag: str) -> TEIElement | None:
         for elem in self.elements:
