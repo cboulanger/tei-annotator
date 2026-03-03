@@ -251,6 +251,43 @@ print(overall.report())
 
 ---
 
+## Iterative schema optimisation
+
+`scripts/evaluate_llm.py` is a self-contained blueprint for building and iteratively improving your own annotation schema against a gold standard.
+
+### How to adapt it for your own use case
+
+1. **Copy `_build_schema()`** and replace the element definitions with those relevant to your domain.  Each `TEIElement.description` is the primary signal the LLM uses to decide what to annotate — see [docs/tei-element-descriptions.md](docs/tei-element-descriptions.md) for evidence-based guidelines on writing effective descriptions.
+
+2. **Create a gold-standard XML file** — a TEI `<listBibl>` (or equivalent container) with a representative sample of manually annotated records.  Point `GOLD_FILE` at it.
+
+3. **Add your LLM endpoint** using the existing `make_gemini_call_fn` / `make_kisski_call_fn` factories as templates, or drop in any `call_fn: (str) -> str`.
+
+4. **Run the evaluator** with `--verbose --match-mode overlap` to capture missed and spurious spans for every failing record:
+
+   ```bash
+   uv run scripts/evaluate_llm.py --verbose --match-mode overlap --max-items 20
+   ```
+
+5. **Iterate on descriptions** — use the `--grep` flag to re-run only the failing records after each change, which keeps the feedback loop fast:
+
+   ```bash
+   uv run scripts/evaluate_llm.py --verbose --match-mode overlap \
+       --grep "pattern matching failing records"
+   ```
+
+### Automated iteration with Claude Code
+
+If you are using [Claude Code](https://claude.ai/claude-code), the repository ships with an `optimize-element-descriptions` skill (`.claude/skills/optimize-element-descriptions/`) that automates the diagnosis–edit–re-evaluate loop:
+
+```text
+/optimize-element-descriptions --max-items 20 --provider gemini
+```
+
+The skill follows the iterative workflow above: it reads the evaluation output, groups failures into patterns (wrong element, missing parent span, bad boundaries, …), edits `_build_schema()` following the guidelines in [docs/tei-element-descriptions.md](docs/tei-element-descriptions.md), re-evaluates only the affected records with `--grep`, and stops when no further improvement is possible through description changes alone.
+
+---
+
 ## Testing
 
 ```bash

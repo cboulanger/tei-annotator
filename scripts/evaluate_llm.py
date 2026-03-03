@@ -144,12 +144,18 @@ def _build_schema():
             "Never emit 'surname', 'forename', or 'orgName' without a corresponding enclosing "
             "'author' or 'editor' span.",
             "When an organisation acts as author or editor, emit BOTH an 'orgName' span AND an "
-            "enclosing 'author' (or 'editor') span covering the same text.",
-            "All name parts (surname, forename, orgName) for one or more contiguous authors "
-            "may be placed inside a single 'author' (or 'editor') span. Emit separate spans "
-            "only when authors are separated by non-name text (e.g. a title or date).",
+            "enclosing 'author' (or 'editor') span. The 'author'/'editor' span MUST enclose the "
+            "'orgName' span — NEVER put an 'author' or 'editor' span inside an 'orgName' span.",
+            "CRITICAL: All name parts for all contiguous authors MUST always be placed inside a "
+            "SINGLE 'author' (or 'editor') span — conjunctions ('and', '&', 'et') and commas "
+            "between names do NOT create separate spans. Emit a new 'author' span only when "
+            "the authors are separated by a title, date, or other non-name bibliographic field.",
             "In a bibliography, a dash or underscore may stand for a repeated author or editor "
             "name — tag it as 'author' or 'editor' accordingly.",
+            "CRITICAL: When a parenthesised location appears immediately after a title "
+            "(e.g. 'Title (City, Region)'), end the 'title' span BEFORE the opening parenthesis "
+            "and emit a separate 'pubPlace' span covering only 'City, Region' (not the parentheses). "
+            "Never include a parenthesised location inside a 'title' span.",
         ],
         elements=[
             TEIElement(
@@ -202,13 +208,28 @@ def _build_schema():
             ),
             TEIElement(
                 tag="orgName",
-                description="Name of an organisation.",
+                description=(
+                    "Name of an organisation that acts as author or editor. "
+                    "Do NOT emit an 'orgName' span inside a 'publisher' span — "
+                    "when an organisation is the publisher, use 'publisher' alone."
+                ),
                 allowed_children=[],
                 attributes=[],
             ),
             TEIElement(
                 tag="title",
-                description="Title of the cited work.",
+                description=(
+                    "Title of the cited work. "
+                    "Do NOT split a title at an internal period or subtitle separator — "
+                    "e.g. 'Classical Literary Criticism. Oxford World Classics' is ONE title span; "
+                    "a city name embedded in a subtitle (e.g. 'Oxford' in 'Oxford World Classics') "
+                    "is NOT a pubPlace — do not interrupt the title span with a pubPlace span. "
+                    "CRITICAL: The title span ends BEFORE any parenthesised location — "
+                    "e.g. in 'Title (City, Region)', only 'Title' is the title span; "
+                    "'City, Region' is a separate pubPlace span. "
+                    "A journal or series title may appear after keywords such as 'in', 'dans', 'in:' — "
+                    "emit a 'title' span for it; do NOT tag it as 'note'."
+                ),
                 allowed_children=[],
                 attributes=[
                     attr(
@@ -221,13 +242,22 @@ def _build_schema():
             ),
             TEIElement(
                 tag="date",
-                description="Publication date or year.",
+                description=(
+                    "Publication date or year. "
+                    "When two dates appear in sequence — e.g. '1989 [1972]' (reprint year and "
+                    "original year) — emit a SEPARATE 'date' span for each individual date."
+                ),
                 allowed_children=[],
                 attributes=[],
             ),
             TEIElement(
                 tag="publisher",
-                description="Name of the publisher.",
+                description=(
+                    "Name of the publisher. "
+                    "When multiple publishers are connected by 'and', emit a SINGLE 'publisher' "
+                    "span covering the full text (e.g. 'Cambridge University Press and the Russell "
+                    "Sage Foundation' is one span). Do NOT nest 'orgName' inside 'publisher'."
+                ),
                 allowed_children=[],
                 attributes=[],
             ),
@@ -235,9 +265,13 @@ def _build_schema():
                 tag="pubPlace",
                 description=(
                     "Place of publication. "
-                    "May appear in parentheses immediately after the title "
-                    "(e.g. 'Title (City, Region)') — the parenthesised location is the pubPlace; "
-                    "do not include the surrounding parentheses in the span."
+                    "CRITICAL: When a location appears in parentheses immediately after the title "
+                    "(e.g. 'Title (City, Region)'), the parenthesised location is the pubPlace — "
+                    "emit a 'pubPlace' span covering only 'City, Region' (without parentheses), "
+                    "and end the 'title' span BEFORE the opening parenthesis. "
+                    "Only tag a city name as pubPlace when it appears OUTSIDE and AFTER the title, "
+                    "typically before a colon and publisher name (e.g. 'Oxford: Oxford UP'). "
+                    "A city name that is part of a subtitle or series name within a title is NOT a pubPlace."
                 ),
                 allowed_children=[],
                 attributes=[],
@@ -246,7 +280,12 @@ def _build_schema():
                 tag="biblScope",
                 description=(
                     "Scope reference within the cited item (page range, volume, issue). "
-                    "Emit a separate biblScope span for volume and issue."
+                    "Emit a separate 'biblScope' span for volume and for issue. "
+                    "The span text contains ONLY the bare number — do not include labels "
+                    "('Vol.', 'No.', 'n°', 't.') or surrounding punctuation/parentheses. "
+                    "E.g. for 'Vol. 12(3)', emit '12' as unit='volume' and '3' as unit='issue'. "
+                    "E.g. for 'n°198', emit '198' as unit='volume'. "
+                    "Do NOT absorb a volume or issue number into a preceding title span."
                 ),
                 allowed_children=[],
                 attributes=[

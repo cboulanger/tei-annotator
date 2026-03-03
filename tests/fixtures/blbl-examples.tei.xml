@@ -3,6 +3,7 @@
  xmlns:mml="http://www.w3.org/1998/Math/MathML">
     <teiHeader>
         <!-- 
+            Example gold file for testing and evaluation purposes
             Adapted from the GROBID training dataset
             https://github.com/grobidOrg/grobid/blob/master/grobid-trainer/resources/dataset/citation/corpus/raw_ref_corrected.training.references.tei.xml
             licensed under Apache License 2.0
@@ -20,7 +21,7 @@
         <back>
             <listBibl>
     <bibl><author><surname>Bugnon</surname> (<forename>A.-L.</forename>)</author>, <title level="a">Le mobilier céramique</title>, in <editor><surname>Méloche</surname></editor> <date>2012</date>, p. <biblScope unit="page">182-196</biblScope>.</bibl>
-    <bibl><author><orgName>Commission Inter-IREM Collège</orgName></author> &amp; <author><orgName>Commission Inter-IREM Statistiques et Probabilités</orgName></author>, (<date>2012</date>). <title level="a">Probabilités au collège : ne pas laisser l’enseignement des probabilités au hasard…</title>. Dans <title level="j">Brochure APMEP</title> n°<biblScope unit="volume">198</biblScope>.</bibl>
+    <bibl><author><orgName>Commission Inter-IREM Collège</orgName> &amp; <orgName>Commission Inter-IREM Statistiques et Probabilités</orgName></author>, (<date>2012</date>). <title level="a">Probabilités au collège : ne pas laisser l’enseignement des probabilités au hasard…</title>. Dans <title level="j">Brochure APMEP</title> n°<biblScope unit="volume">198</biblScope>.</bibl>
     <bibl><author><surname>BARIL</surname>, <forename>Jean</forename></author> (<date>2013</date>). <title level="a">Droit d’accès à l’information environnementale</title>. <publisher>Éditions Yvon Blais</publisher>, <pubPlace>Cowansville, Québec</pubPlace>, <biblScope unit="page">561 p</biblScope>.</bibl>
     <bibl><author><surname>Russell</surname>, <forename>D.A.</forename> and <forename>Michael</forename> <surname>Winterbottom</surname></author> <date>1989</date> [<date>1972</date>]. <title level="m">Classical Literary Criticism. Oxford World Classics</title>. <pubPlace>Oxford</pubPlace>: <publisher>Oxford UP</publisher>.</bibl>
     <bibl><author><surname>Doyle</surname> <forename>JJ.</forename></author> <date>1998</date>. <title level="a">Phylogenetic perspectives on nodulation: evolving views of plants and symbiotic bacteria</title>. &lt;italic&gt;<title level="j">Trends in Plant Science</title>&lt;/italic&gt; <biblScope unit="volume">3</biblScope>: <biblScope unit="page">473-478</biblScope>.</bibl> 
