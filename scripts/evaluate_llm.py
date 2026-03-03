@@ -38,6 +38,11 @@ from pathlib import Path
 _REPO = Path(__file__).parent.parent
 GOLD_FILE = _REPO / "tests" / "fixtures" / "blbl-examples.tei.xml"
 
+# Separator used to join multiple bibl plain-texts into a single annotate() call.
+# Triple-pipe never appears in bibliographic text; inject_xml() never modifies
+# text characters, so this string is guaranteed to survive the annotation pass.
+_BATCH_SEP = "\n---RECORD|||SEP|||BOUNDARY---\n"
+
 # ---------------------------------------------------------------------------
 # .env loader (stdlib-only, no python-dotenv needed)
 # ---------------------------------------------------------------------------
@@ -324,6 +329,120 @@ def _build_schema():
 
 
 # ---------------------------------------------------------------------------
+# Batch evaluation helper
+# ---------------------------------------------------------------------------
+
+
+def _evaluate_batch(
+    batch_bibls,
+    schema,
+    endpoint,
+    match_mode,
+    gliner_model=None,
+    overlap_threshold: float = 0.5,
+):
+    """
+    Annotate *batch_bibls* in a single annotate() call and evaluate each record.
+
+    Returns a list of (EvaluationResult, annotation_xml_fragment | None) tuples
+    in the same order as *batch_bibls*.  annotation_xml_fragment is the portion
+    of the combined annotated XML that corresponds to that record (None if the
+    record was empty or if the separator split failed).
+    """
+    import warnings
+    from lxml import etree
+
+    from tei_annotator.evaluation.evaluator import _escape_nonschema_brackets
+    from tei_annotator.evaluation.extractor import extract_spans
+    from tei_annotator.evaluation.metrics import compute_metrics
+    from tei_annotator.pipeline import annotate
+
+    n = len(batch_bibls)
+    results = [None] * n
+
+    # Step 1 — extract gold spans and plain text for every record
+    plain_texts = []
+    gold_spans_list = []
+    for bibl in batch_bibls:
+        pt, gs = extract_spans(bibl)
+        plain_texts.append(pt)
+        gold_spans_list.append(gs)
+
+    # Step 2 — separate empty records (no text to annotate)
+    non_empty_indices = [i for i, t in enumerate(plain_texts) if t.strip()]
+    for i in range(n):
+        if plain_texts[i].strip() == "":
+            results[i] = (compute_metrics([], []), None)
+
+    if not non_empty_indices:
+        return results
+
+    # Step 3 — guard: separator must not appear in any record's text
+    for i in non_empty_indices:
+        if _BATCH_SEP in plain_texts[i]:
+            warnings.warn(
+                f"Batch record {i} contains the batch separator; "
+                "falling back to empty predictions for this batch.",
+                stacklevel=2,
+            )
+            for j in non_empty_indices:
+                results[j] = (compute_metrics(gold_spans_list[j], []), None)
+            return results
+
+    # Step 4 — build combined text and annotate in one call
+    combined = _BATCH_SEP.join(plain_texts[i] for i in non_empty_indices)
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", message="Output XML validation failed")
+        annotation_result = annotate(
+            text=combined,
+            schema=schema,
+            endpoint=endpoint,
+            gliner_model=gliner_model,
+        )
+    combined_xml = annotation_result.xml
+
+    # Step 5 — split annotated XML back into per-record fragments
+    pieces = combined_xml.split(_BATCH_SEP)
+    if len(pieces) != len(non_empty_indices):
+        warnings.warn(
+            f"Batch split mismatch: expected {len(non_empty_indices)} pieces, "
+            f"got {len(pieces)}. Returning empty predictions for this batch.",
+            stacklevel=2,
+        )
+        for i in non_empty_indices:
+            results[i] = (compute_metrics(gold_spans_list[i], []), None)
+        return results
+
+    # Step 6 — build EvaluationResult for each fragment
+    allowed_tags = frozenset(e.tag for e in schema.elements)
+    for k, i in enumerate(non_empty_indices):
+        fragment = pieces[k]
+        gold_spans = gold_spans_list[i]
+
+        safe_xml = _escape_nonschema_brackets(fragment, allowed_tags)
+        try:
+            pred_root = etree.fromstring(f"<_root>{safe_xml}</_root>".encode())
+            _, pred_spans = extract_spans(pred_root)
+        except etree.XMLSyntaxError as exc:
+            warnings.warn(
+                f"Could not parse batch fragment {i} as XML; treating as empty: {exc}",
+                stacklevel=2,
+            )
+            pred_spans = []
+
+        eval_result = compute_metrics(
+            gold_spans,
+            pred_spans,
+            mode=match_mode,
+            overlap_threshold=overlap_threshold,
+        )
+        eval_result.annotation_xml = fragment
+        results[i] = (eval_result, fragment)
+
+    return results
+
+
+# ---------------------------------------------------------------------------
 # Evaluation runner
 # ---------------------------------------------------------------------------
 
@@ -338,6 +457,7 @@ def run_evaluation(
     output_file: Path | None = None,
     grep: str | None = None,
     inverse_grep: str | None = None,
+    batch_size: int = 1,
 ) -> bool:
     """
     Evaluate one provider: iterate over gold records with live progress,
@@ -414,6 +534,7 @@ def run_evaluation(
         print(f"  Provider  : {provider_name}")
         print(f"  Gold file : {GOLD_FILE.relative_to(_REPO)}")
         print(f"  Records   : {n_total}   match-mode: {match_mode_str}")
+        print(f"  Batch size: {batch_size}")
         print(f"  GLiNER    : {gliner_model or 'disabled'}")
         print(sep)
 
@@ -422,15 +543,27 @@ def run_evaluation(
             preload_gliner_model(gliner_model)
             print(f"  GLiNER model ready.")
 
+        def _batched(lst, size):
+            for start in range(0, len(lst), size):
+                yield lst[start : start + size]
+
         per_record = []
         failed = 0
-        for i, bibl in enumerate(records, 1):
-            plain_text = "".join(bibl.itertext())
-            snippet = plain_text[:60].replace("\n", " ")
+        item_idx = 0
+        sep60 = "─" * 60
+        for batch in _batched(records, batch_size):
+            batch_start = item_idx + 1
+            batch_end = item_idx + len(batch)
+            snippet = "".join(batch[0].itertext())[:60].replace("\n", " ")
             if _pbar:
                 _pbar.set_description(snippet[:45])
             else:
-                print(f"  [{i:3d}/{n_total}] {snippet}...", end="\r\n", flush=True)
+                range_str = (
+                    f"{batch_start:3d}"
+                    if batch_size == 1
+                    else f"{batch_start}-{batch_end}"
+                )
+                print(f"  [{range_str}/{n_total}] {snippet}...", end="\r\n", flush=True)
             try:
                 # Suppress the pipeline's best-effort XML validation warning here;
                 # it surfaces again in the evaluator warning if parsing fails.
@@ -439,36 +572,48 @@ def run_evaluation(
                         "ignore",
                         message="Output XML validation failed",
                     )
-                    result = evaluate_element(
-                        gold_element=bibl,
-                        schema=schema,
-                        endpoint=endpoint,
-                        gliner_model=gliner_model,
-                        match_mode=match_mode,
-                    )
-                if verbose and result.annotation_xml is not None and result.micro_f1 < 1.0:
-                    sep60 = "─" * 60
-                    gold_parts = [bibl.text or ""]
-                    for child in bibl:
-                        child_xml = etree.tostring(child, encoding="unicode", with_tail=True)
-                        gold_parts.append(re.sub(r'\s+xmlns(?::\w+)?="[^"]*"', "", child_xml))
-                    gold_xml = "".join(gold_parts)
-                    print(f"  {sep60}")
-                    print(f"  Gold:       {gold_xml}")
-                    print(f"  Annotation: {result.annotation_xml}")
-                    print(f"  F1={result.micro_f1:.3f}  "
-                          f"missed={[s.element for s in result.unmatched_gold]}  "
-                          f"spurious={[s.element for s in result.unmatched_pred]}")
-                    #print(f"  {sep60}\n")
-                per_record.append(result)
+                    if batch_size == 1:
+                        result = evaluate_element(
+                            gold_element=batch[0],
+                            schema=schema,
+                            endpoint=endpoint,
+                            gliner_model=gliner_model,
+                            match_mode=match_mode,
+                        )
+                        batch_results = [(result, result.annotation_xml)]
+                    else:
+                        batch_results = _evaluate_batch(
+                            batch_bibls=batch,
+                            schema=schema,
+                            endpoint=endpoint,
+                            match_mode=match_mode,
+                            gliner_model=gliner_model,
+                        )
+                for k, (result, annotation_frag) in enumerate(batch_results):
+                    bibl = batch[k]
+                    if verbose and annotation_frag is not None and result.micro_f1 < 1.0:
+                        gold_parts = [bibl.text or ""]
+                        for child in bibl:
+                            child_xml = etree.tostring(child, encoding="unicode", with_tail=True)
+                            gold_parts.append(re.sub(r'\s+xmlns(?::\w+)?="[^"]*"', "", child_xml))
+                        gold_xml = "".join(gold_parts)
+                        print(f"  {sep60}")
+                        print(f"  Gold:       {gold_xml}")
+                        print(f"  Annotation: {annotation_frag}")
+                        print(f"  F1={result.micro_f1:.3f}  "
+                              f"missed={[s.element for s in result.unmatched_gold]}  "
+                              f"spurious={[s.element for s in result.unmatched_pred]}")
+                    per_record.append(result)
+                item_idx += len(batch)
                 if _pbar:
-                    _pbar.update(1)
-                    _pbar.set_postfix(F1=f"{result.micro_f1:.3f}")
+                    _pbar.update(len(batch))
+                    _pbar.set_postfix(F1=f"{batch_results[0][0].micro_f1:.3f}")
             except Exception as exc:
-                print(f"\n  [{i:3d}/{n_total}] ERROR — {exc}")
-                failed += 1
+                print(f"\n  [{batch_start}-{batch_end}/{n_total}] ERROR — {exc}")
+                failed += len(batch)
+                item_idx += len(batch)
                 if _pbar:
-                    _pbar.update(1)
+                    _pbar.update(len(batch))
 
         if _pbar:
             _pbar.close()
@@ -578,6 +723,18 @@ def _parse_args() -> argparse.Namespace:
         metavar="PATTERN",
         help="Only evaluate records whose plain text does NOT match this regex pattern.",
     )
+    p.add_argument(
+        "--batch-size",
+        type=int,
+        default=1,
+        metavar="N",
+        help=(
+            "Number of <bibl> records to annotate in a single LLM call. "
+            "Default=1 (original one-record-per-call behavior). "
+            "Use 5-20 to reduce latency at a potential quality cost "
+            "(\"lost in the middle\" effect for items in large batches)."
+        ),
+    )
     return p.parse_args()
 
 
@@ -626,6 +783,7 @@ def main() -> int:
             output_file=Path(args.output_file) if args.output_file else None,
             grep=args.grep,
             inverse_grep=args.inverse_grep,
+            batch_size=args.batch_size,
         )
         results.append(ok)
 
