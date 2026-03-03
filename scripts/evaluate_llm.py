@@ -70,11 +70,11 @@ _load_env(_REPO / ".env")
 # ---------------------------------------------------------------------------
 
 
-def _post_json(url: str, payload: dict, headers: dict) -> dict:
+def _post_json(url: str, payload: dict, headers: dict, timeout: int = 120) -> dict:
     body = json.dumps(payload).encode()
     req = urllib.request.Request(url, data=body, headers=headers, method="POST")
     try:
-        with urllib.request.urlopen(req, timeout=120) as resp:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
             return json.loads(resp.read())
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode(errors="replace")
@@ -86,7 +86,7 @@ def _post_json(url: str, payload: dict, headers: dict) -> dict:
 # ---------------------------------------------------------------------------
 
 
-def make_gemini_call_fn(api_key: str, model: str = "gemini-2.0-flash"):
+def make_gemini_call_fn(api_key: str, model: str = "gemini-2.0-flash", timeout: int = 120):
     """Return a call_fn that sends a prompt to Gemini and returns the text reply."""
     url = (
         f"https://generativelanguage.googleapis.com/v1beta/models"
@@ -98,7 +98,7 @@ def make_gemini_call_fn(api_key: str, model: str = "gemini-2.0-flash"):
             "contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {"temperature": 0.1},
         }
-        result = _post_json(url, payload, {"Content-Type": "application/json"})
+        result = _post_json(url, payload, {"Content-Type": "application/json"}, timeout)
         return result["candidates"][0]["content"]["parts"][0]["text"]
 
     call_fn.__name__ = f"gemini/{model}"
@@ -109,6 +109,7 @@ def make_kisski_call_fn(
     api_key: str,
     base_url: str = "https://chat-ai.academiccloud.de/v1",
     model: str = "llama-3.3-70b-instruct",
+    timeout: int = 120,
 ):
     """Return a call_fn for a KISSKI-hosted OpenAI-compatible model."""
     url = f"{base_url}/chat/completions"
@@ -123,7 +124,7 @@ def make_kisski_call_fn(
             "messages": [{"role": "user", "content": prompt}],
             "temperature": 0.1,
         }
-        result = _post_json(url, payload, headers)
+        result = _post_json(url, payload, headers, timeout)
         return result["choices"][0]["message"]["content"]
 
     call_fn.__name__ = f"kisski/{model}"
@@ -735,6 +736,17 @@ def _parse_args() -> argparse.Namespace:
             "(\"lost in the middle\" effect for items in large batches)."
         ),
     )
+    p.add_argument(
+        "--timeout",
+        type=int,
+        default=120,
+        metavar="SECONDS",
+        help=(
+            "HTTP read timeout in seconds for each LLM API call. "
+            "Default=120. Increase when using large batch sizes with slow models "
+            "(e.g. --timeout 600 --batch-size 10 for KISSKI Llama)."
+        ),
+    )
     return p.parse_args()
 
 
@@ -752,7 +764,7 @@ def main() -> int:
             if args.provider == "gemini":
                 return 1
         else:
-            providers.append(("Gemini 2.0 Flash", make_gemini_call_fn(gemini_key)))
+            providers.append(("Gemini 2.0 Flash", make_gemini_call_fn(gemini_key, timeout=args.timeout)))
 
     if args.provider in ("kisski", "all"):
         if not kisski_key:
@@ -761,7 +773,7 @@ def main() -> int:
                 return 1
         else:
             providers.append(
-                ("KISSKI / llama-3.3-70b-instruct", make_kisski_call_fn(kisski_key))
+                ("KISSKI / llama-3.3-70b-instruct", make_kisski_call_fn(kisski_key, timeout=args.timeout))
             )
 
     if not providers:
