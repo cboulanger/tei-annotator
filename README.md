@@ -100,6 +100,8 @@ API keys for real LLM endpoints go in `.env` (see `.env` for the expected variab
 
 ## Quick example
 
+Element descriptions are the primary signal the LLM uses to decide what to annotate and how. See [docs/tei-element-descriptions.md](docs/tei-element-descriptions.md) for guidelines on writing effective descriptions (span framing, multiplicity, parent–child span pairs, negative constraints, and more).
+
 ```python
 from tei_annotator import (
     annotate,

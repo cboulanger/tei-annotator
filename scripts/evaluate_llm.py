@@ -145,7 +145,9 @@ def _build_schema():
                     "bibliographic entry, before any author or title. Typical forms: a plain number "
                     "('17'), a number with a trailing period ('17.'), a number in square brackets "
                     "('[77]', '[ACL30]'), or a compound number ('5,6'). The separator that follows "
-                    "the label (period, dash, or space) is NOT part of the label."
+                    "the label (period, dash, or space) is NOT part of the label. "
+                    "A label is always a number or short code — never a word or name. "
+                    "An ALL-CAPS word at the start of an entry is an author surname, not a label."
                 ),
                 allowed_children=[],
                 attributes=[],
@@ -154,9 +156,13 @@ def _build_schema():
                 tag="author",
                 description=(
                     "Name(s) of the author(s) of the cited work. "
-                    "Emit an 'author' span covering the full name text. "
+                    "Emit a separate 'author' span for each distinct author — never merge multiple "
+                    "authors into a single span. "
+                    "Each 'author' span covers the full name text of one author. "
                     "Also emit separate 'surname', 'forename', or 'orgName' spans for the "
                     "individual name parts; those spans must fall within the 'author' span's text. "
+                    "When an organisation is the author, emit both an 'author' span and an "
+                    "'orgName' span covering the same text — never emit 'orgName' alone in that role. "
                     "Names appearing at the start of a bibliographic entry before the title and "
                     "date are authors. "
                     "In a bibliography, a dash or underscore may stand for a repeated author name."
@@ -173,8 +179,8 @@ def _build_schema():
                     "those spans must fall within the 'editor' span's text. "
                     "An editor's name typically follows keywords such as 'in', 'ed.', 'éd.', "
                     "'Hrsg.', 'dir.', '(ed.)', '(eds.)'. "
-                    "Do NOT annotate an editor's name as 'title': a person's name after 'in' is "
-                    "an editor, not a title. "
+                    "CRITICAL: A person's name (or surname alone) that follows 'in' is an editor — "
+                    "emit an 'editor' span (plus name-part spans), never a 'title' span. "
                     "In a bibliography, a dash or underscore may stand for a repeated editor name."
                 ),
                 allowed_children=['surname', 'forename', 'orgName'],
@@ -206,9 +212,11 @@ def _build_schema():
                 tag="orgName",
                 description=(
                     "Name of an organisation. "
-                    "When the organisation is an author or editor of the cited work, always emit "
-                    "together with an enclosing 'author' or 'editor' span — never emit 'orgName' "
-                    "alone in that role."
+                    "When the organisation is an author or editor of the cited work, you MUST emit "
+                    "both the 'orgName' span and an enclosing 'author' (or 'editor') span covering "
+                    "the same text. For example, if 'Acme Research Group' is an author, emit an "
+                    "'author' span AND an 'orgName' span both covering 'Acme Research Group'. "
+                    "Never emit 'orgName' alone when the organisation acts as author or editor."
                 ),
                 allowed_children=[],
                 attributes=[],
@@ -240,7 +248,12 @@ def _build_schema():
             ),
             TEIElement(
                 tag="pubPlace",
-                description="Place of publication.",
+                description=(
+                    "Place of publication. "
+                    "May appear in parentheses immediately after the title "
+                    "(e.g. 'Title (City, Region)') — the parenthesised location is the pubPlace; "
+                    "do not include the surrounding parentheses in the span."
+                ),
                 allowed_children=[],
                 attributes=[],
             ),
@@ -267,7 +280,12 @@ def _build_schema():
             ),
             TEIElement(
                 tag="note",
-                description="Editorial note or annotation about the cited item.",
+                description=(
+                    "Editorial note or annotation about the cited item. "
+                    "Institutional or series report designations — such as 'Amok Internal Report', "
+                    "'USGS Open-File Report 97-123', or 'Technical Report No. 5' — must be tagged "
+                    "as 'note' with type='report', NOT as 'orgName' or 'title'."
+                ),
                 allowed_children=[],
                 attributes=[attr("type", "Type of note, e.g. 'report'.")],
             ),
@@ -294,6 +312,8 @@ def run_evaluation(
     gliner_model: str | None = None,
     verbose: bool = False,
     output_file: Path | None = None,
+    grep: str | None = None,
+    inverse_grep: str | None = None,
 ) -> bool:
     """
     Evaluate one provider: iterate over gold records with live progress,
@@ -336,13 +356,19 @@ def run_evaluation(
     # --- load gold records --------------------------------------------------
     tree = etree.parse(str(GOLD_FILE))
     containers = tree.findall(f".//{{{_TEI_NS}}}listBibl") or tree.findall(".//listBibl")
-    all_bibls: list[etree._Element] = []
+    records: list[etree._Element] = []
     for c in containers:
         children = c.findall(f"{{{_TEI_NS}}}bibl") or c.findall("bibl")
-        all_bibls.extend(children)
+        records.extend(children)
+    if grep:
+        _grep_re = re.compile(grep)
+        records = [r for r in records if _grep_re.search("".join(r.itertext()))]
+    if inverse_grep:
+        _igrep_re = re.compile(inverse_grep)
+        records = [r for r in records if not _igrep_re.search("".join(r.itertext()))]
     if max_items is not None:
-        all_bibls = all_bibls[:max_items]
-    n_total = len(all_bibls)
+        records = records[:max_items]
+    n_total = len(records)
 
     # --- output destination and progress display ----------------------------
     # When --output-file: buffer all prints → file; show tqdm bar on stderr.
@@ -374,7 +400,7 @@ def run_evaluation(
 
         per_record = []
         failed = 0
-        for i, bibl in enumerate(all_bibls, 1):
+        for i, bibl in enumerate(records, 1):
             plain_text = "".join(bibl.itertext())
             snippet = plain_text[:60].replace("\n", " ")
             if _pbar:
@@ -403,13 +429,13 @@ def run_evaluation(
                         child_xml = etree.tostring(child, encoding="unicode", with_tail=True)
                         gold_parts.append(re.sub(r'\s+xmlns(?::\w+)?="[^"]*"', "", child_xml))
                     gold_xml = "".join(gold_parts)
-                    print(f"\n  {sep60}")
+                    print(f"  {sep60}")
                     print(f"  Gold:       {gold_xml}")
                     print(f"  Annotation: {result.annotation_xml}")
                     print(f"  F1={result.micro_f1:.3f}  "
                           f"missed={[s.element for s in result.unmatched_gold]}  "
                           f"spurious={[s.element for s in result.unmatched_pred]}")
-                    print(f"  {sep60}\n")
+                    #print(f"  {sep60}\n")
                 per_record.append(result)
                 if _pbar:
                     _pbar.update(1)
@@ -443,8 +469,8 @@ def run_evaluation(
             if worst:
                 print(f"\n  Lowest-F1 records (top 5):")
                 for idx, r in worst:
-                    gold_bibl = all_bibls[idx - 1]
-                    snippet = "".join(gold_bibl.itertext())[:55].replace("\n", " ")
+                    record = records[idx - 1]
+                    snippet = "".join(record.itertext())[:55].replace("\n", " ")
                     fn_tags = [s.element for s in r.unmatched_gold]
                     fp_tags = [s.element for s in r.unmatched_pred]
                     print(
@@ -516,6 +542,18 @@ def _parse_args() -> argparse.Namespace:
         default="all",
         help="Which provider(s) to evaluate.",
     )
+    p.add_argument(
+        "--grep",
+        default=None,
+        metavar="PATTERN",
+        help="Only evaluate records whose plain text matches this regex pattern.",
+    )
+    p.add_argument(
+        "--inverse-grep",
+        default=None,
+        metavar="PATTERN",
+        help="Only evaluate records whose plain text does NOT match this regex pattern.",
+    )
     return p.parse_args()
 
 
@@ -562,6 +600,8 @@ def main() -> int:
             gliner_model=args.gliner_model,
             verbose=args.verbose,
             output_file=Path(args.output_file) if args.output_file else None,
+            grep=args.grep,
+            inverse_grep=args.inverse_grep,
         )
         results.append(ok)
 
