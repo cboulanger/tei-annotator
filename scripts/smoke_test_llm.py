@@ -23,26 +23,9 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
+from dotenv import load_dotenv
 
-# ---------------------------------------------------------------------------
-# .env loader (stdlib-only, no python-dotenv needed)
-# ---------------------------------------------------------------------------
-
-def _load_env(path: str = ".env") -> None:
-    try:
-        with open(path) as fh:
-            for line in fh:
-                line = line.strip()
-                if not line or line.startswith("#") or "=" not in line:
-                    continue
-                key, _, value = line.partition("=")
-                value = value.strip().strip('"').strip("'")
-                os.environ.setdefault(key.strip(), value)
-    except FileNotFoundError:
-        pass
-
-
-_load_env(Path(__file__).parent.parent / ".env")
+load_dotenv(Path(__file__).parent.parent / ".env")
 
 
 # ---------------------------------------------------------------------------
@@ -191,7 +174,7 @@ def run_smoke_test(provider_name: str, call_fn) -> bool:
     print(f"  ✓ PASSED")
     print(f"  Tags found : {', '.join(tags_found)}")
     if result.fuzzy_spans:
-        print(f"  Fuzzy spans: {[s.text for s in result.fuzzy_spans]}")
+        print(f"  Fuzzy spans: {[TEST_TEXT[s.start:s.end] for s in result.fuzzy_spans]}")
     print(f"  Output XML :")
     for line in textwrap.wrap(result.xml, width=72, subsequent_indent="    "):
         print(f"    {line}")
