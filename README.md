@@ -257,7 +257,7 @@ print(overall.report())
 
 ### How to adapt it for your own use case
 
-1. **Copy `_build_schema()`** and replace the element definitions with those relevant to your domain.  Each `TEIElement.description` is the primary signal the LLM uses to decide what to annotate — see [docs/tei-element-descriptions.md](docs/tei-element-descriptions.md) for evidence-based guidelines on writing effective descriptions.
+1. **Copy `tei_annotator/schemas/blbl.py`** and replace the element definitions with those relevant to your domain.  Each `TEIElement.description` is the primary signal the LLM uses to decide what to annotate — see [docs/tei-element-descriptions.md](docs/tei-element-descriptions.md) for evidence-based guidelines on writing effective descriptions.
 
 2. **Create a gold-standard XML file** — a TEI parent element (e.g. `<listBibl>` or equivalent container) with a representative sample of manually annotated records (such as `<bibl>` elements).  Point `GOLD_FILE` at it.
 
@@ -285,6 +285,146 @@ If you are using [Claude Code](https://claude.ai/claude-code), the repository sh
 ```
 
 The skill follows the iterative workflow above: it reads the evaluation output, groups failures into patterns (wrong element, missing parent span, bad boundaries, …), edits `_build_schema()` following the guidelines in [docs/tei-element-descriptions.md](docs/tei-element-descriptions.md), re-evaluates only the affected records with `--grep`, and stops when no further improvement is possible through description changes alone.
+
+---
+
+## Webservice
+
+A self-contained FastAPI webservice that exposes the annotation pipeline as both a browser UI and a JSON API.
+
+### Setup
+
+```bash
+uv pip install -e ".[webservice]"
+cp webservice/.env.template webservice/.env
+# fill in at least one API key in webservice/.env
+```
+
+### Running locally
+
+```bash
+cd webservice
+python main.py           # reads HOST / PORT from .env
+python main.py --reload  # development mode with auto-reload
+```
+
+> **Note:** Do not start with `uvicorn main:app` directly — uvicorn binds the port from its CLI args *before* the module is imported, so `load_dotenv()` would run too late to affect the port.
+
+### Endpoints
+
+| Endpoint | Method | Description |
+| --- | --- | --- |
+| `/` | `GET` | HTML form — paste text, choose provider, get annotated XML |
+| `/annotate` | `POST` (form) | Form submission handler; returns the same page with results |
+| `/api/annotate` | `POST` (JSON) | General JSON API (see below) |
+| `/docs` | `GET` | Interactive OpenAPI documentation (Swagger UI) |
+
+### JSON API
+
+`POST /api/annotate`
+
+```json
+{
+  "text": "Marie Curie was born in Warsaw and later worked in Paris.",
+  "provider": "gemini",
+  "schema": {
+    "elements": [
+      { "tag": "persName", "description": "a person's name" },
+      { "tag": "placeName", "description": "a geographical place name" }
+    ],
+    "rules": []
+  }
+}
+```
+
+Both `provider` and `schema` are optional. Omitting `provider` falls back to `DEFAULT_PROVIDER` in `.env`; omitting `schema` uses the built-in BLBL bibliographic schema.
+
+Response:
+
+```json
+{
+  "xml": "<persName>Marie Curie</persName> was born in <placeName>Warsaw</placeName>...",
+  "fuzzy_spans": []
+}
+```
+
+### Smoke test
+
+With the server running:
+
+```bash
+python scripts/smoke_test_webservice.py
+```
+
+The script reads `HOST` and `PORT` from `webservice/.env` and runs five checks against the live instance. Pass `--base-url URL` to target a remote deployment.
+
+---
+
+## Deployment
+
+### Docker
+
+```bash
+# Build from the repo root
+docker build -f webservice/Dockerfile -t tei-annotator-webservice .
+
+# Run — API keys are passed as secrets, not baked into the image
+docker run --env-file webservice/.env -p 8000:8000 tei-annotator-webservice
+```
+
+Individual variables can also be passed with `-e`:
+
+```bash
+docker run -e GEMINI_API_KEY=your_key -e PORT=8000 -p 8000:8000 tei-annotator-webservice
+```
+
+### Hugging Face Spaces
+
+Hugging Face Spaces (Docker SDK) expects a `Dockerfile` at the **root** of the Space repository and automatically injects `PORT=7860` — which the webservice reads correctly.
+
+**Step 1 — Create the Space**
+
+On [huggingface.co/new-space](https://huggingface.co/new-space), choose **Docker** as the SDK.
+
+**Step 2 — Push the repository**
+
+```bash
+# Add the Space as a remote and push
+git remote add space https://huggingface.co/spaces/<your-username>/<space-name>
+git push space main
+```
+
+Because HF Spaces expects the Dockerfile at the root, add a thin root-level `Dockerfile` that delegates to the webservice directory:
+
+```dockerfile
+# Dockerfile  (repo root — for Hugging Face Spaces)
+FROM python:3.12-slim
+WORKDIR /app
+COPY . .
+RUN pip install --no-cache-dir -e ".[webservice]"
+WORKDIR /app/webservice
+CMD ["python", "main.py"]
+```
+
+**Step 3 — Set API key secrets**
+
+In your Space's **Settings → Variables and Secrets**, add each key as a **Secret** (secrets are encrypted and injected as environment variables at runtime — never baked into the image):
+
+| Secret name | Value |
+| --- | --- |
+| `GEMINI_API_KEY` | your Gemini API key |
+| `KISSKI_API_KEY` | your KISSKI API key (if used) |
+| `DEFAULT_PROVIDER` | `gemini` or `kisski` |
+
+`PORT` is set automatically by HF Spaces (`7860`) and does not need to be configured.
+
+**Step 4 — Verify**
+
+Once the Space has built, open its URL and run the smoke test against it:
+
+```bash
+python scripts/smoke_test_webservice.py --base-url https://<your-username>-<space-name>.hf.space
+```
 
 ---
 
