@@ -189,8 +189,8 @@ def do_evaluate(model: str, n: int):
 with gr.Blocks(title="TEI Annotator") as demo:
     gr.Markdown(
         "# TEI Annotator\n"
-        "Annotate bibliographic plain text with TEI XML tags using open LLMs "
-        "via the HuggingFace Inference Router."
+        "Annotate bibliographic plain text with TEI XML tags (tei:author, tei:title etc.) "
+        "using open LLMs via the HuggingFace Inference Router."
     )
     if not _HF_TOKEN:
         gr.Markdown("> **Setup required:** Set `HF_TOKEN` as a Space secret and restart.")
