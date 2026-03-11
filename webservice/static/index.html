@@ -425,7 +425,7 @@
         textarea.value = 'Loading samples…';
         try {
           const n = Math.max(1, parseInt(nSamplesInput.value, 10) || 5);
-          const resp = await fetch(`/api/sample?n=${n}`);
+          const resp = await fetch(`/api/sample?n=${n}`, {headers: authHeaders({})});
           const samples = await resp.json();
           textarea.value = samples.map(s => s.text).join('\n\n---\n\n');
         } catch {
@@ -478,7 +478,7 @@
         try {
           const resp = await fetch('/api/annotate', {
             method: 'POST',
-            headers: {'Content-Type': 'application/json'},
+            headers: authHeaders(),
             body: JSON.stringify({ text: textarea.value, provider, model }),
           });
           const data = await resp.json();
@@ -536,7 +536,7 @@
         try {
           const resp = await fetch('/api/evaluate', {
             method: 'POST',
-            headers: {'Content-Type': 'application/json'},
+            headers: authHeaders(),
             body: JSON.stringify({ provider, model, n, seed }),
             signal: currentController.signal,
           });
@@ -612,10 +612,21 @@
       copyTable('eval-table', this);
     });
 
+    // Bearer token received from /api/config (null when server has no DEMO_TOKEN set).
+    let apiToken = null;
+
+    // Return headers for authenticated API calls.
+    function authHeaders(extra) {
+      const h = Object.assign({'Content-Type': 'application/json'}, extra);
+      if (apiToken) h['Authorization'] = 'Bearer ' + apiToken;
+      return h;
+    }
+
     // Initialise from /api/config
     (async function init() {
       try {
         const cfg = await fetch('/api/config').then(r => r.json());
+        apiToken = cfg.token || null;
         if (!cfg.providers || cfg.providers.length === 0) {
           document.getElementById('no-token').hidden = false;
           return;

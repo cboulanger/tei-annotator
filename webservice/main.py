@@ -21,7 +21,7 @@ import time
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
@@ -32,6 +32,18 @@ from pydantic import BaseModel, Field
 load_dotenv(Path(__file__).parent / ".env")
 
 _GLINER_MODEL = os.environ.get("GLINER_MODEL", "") or None
+
+# Optional shared-secret token.  Set DEMO_TOKEN in .env to enable enforcement.
+# Leave empty for open access (local development).
+_DEMO_TOKEN = os.environ.get("DEMO_TOKEN", "") or None
+
+
+async def _verify_token(authorization: str | None = Header(None)) -> None:
+    """Dependency: reject requests that don't carry the configured bearer token."""
+    if _DEMO_TOKEN is None:
+        return  # token enforcement disabled
+    if authorization != f"Bearer {_DEMO_TOKEN}":
+        raise HTTPException(status_code=401, detail="Missing or invalid token.")
 
 from connectors import get_available_connectors, get_connector  # noqa: E402
 
@@ -232,11 +244,11 @@ async def api_config():
             "models": models,
             "default_model": default_model,
         })
-    return {"providers": providers}
+    return {"providers": providers, "token": _DEMO_TOKEN}
 
 
 @app.get("/api/sample")
-async def sample_api(n: int = 5):
+async def sample_api(n: int = 5, _: None = Depends(_verify_token)):
     """
     Return *n* random plain-text bibliographic entries from the test fixture.
     Useful for populating the evaluation textarea in the UI.
@@ -288,7 +300,7 @@ class AnnotateResponse(BaseModel):
 
 
 @app.post("/api/annotate", response_model=AnnotateResponse)
-async def annotate_api(body: AnnotateRequest):
+async def annotate_api(body: AnnotateRequest, _: None = Depends(_verify_token)):
     """
     Annotate *text* and return the XML result.
 
@@ -345,7 +357,7 @@ class EvaluateRequest(BaseModel):
 
 
 @app.post("/api/evaluate")
-async def evaluate_api(body: EvaluateRequest):
+async def evaluate_api(body: EvaluateRequest, _: None = Depends(_verify_token)):
     """
     Sample *n* bibliographic entries from the test fixture, annotate each with
     the chosen model, and return precision/recall/F1 against the gold standard.
