@@ -1,0 +1,32 @@
+# Systemd service unit for the TEI Annotator webservice.
+#
+# Setup:
+#   1. Adjust User, WorkingDirectory, and the ExecStart uv path below.
+#      Find the correct uv path with: which uv
+#   2. Copy to the systemd directory:
+#        sudo cp webservice/tei-annotator.service /etc/systemd/system/
+#   3. Enable and start:
+#        sudo systemctl daemon-reload
+#        sudo systemctl enable --now tei-annotator
+#   4. Check status and follow logs:
+#        sudo systemctl status tei-annotator
+#        journalctl -u tei-annotator -f
+
+[Unit]
+Description=TEI Annotator webservice
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/opt/tei-annotator/webservice
+EnvironmentFile=/opt/tei-annotator/webservice/.env
+# Remove any stale PID file before each start so the built-in
+# process-replacement logic does not interfere with systemd restarts.
+ExecStartPre=/bin/rm -f /opt/tei-annotator/webservice/.server.pid
+ExecStart=/usr/local/bin/uv run python main.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
