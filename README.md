@@ -310,7 +310,7 @@ There is a (very slow) demo on HuggingFace:
 For local testing and development, two interfaces are provided:
 
 - **`app.py`** — Gradio app for HuggingFace Spaces. See [docs/huggingface-deployment.md](docs/huggingface-deployment.md) for setup and deployment instructions.
-- **`webservice/`** — FastAPI JSON API + browser UI for local use. Supports multiple LLM providers (HuggingFace Inference Router, Google Gemini, KISSKI) — providers are enabled based on which API keys are set in `.env`. See [docs/webservice.md](docs/webservice.md) for full documentation.
+- **`webservice/`** — FastAPI JSON API + browser UI. Supports multiple LLM providers (HuggingFace, Gemini, OpenAI, Claude, KISSKI) — enabled based on which API keys are set in `.env`. See [webservice/README.md](webservice/README.md) for full documentation.
 
 ---
 

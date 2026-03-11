@@ -33,17 +33,22 @@ load_dotenv(Path(__file__).parent / ".env")
 
 _GLINER_MODEL = os.environ.get("GLINER_MODEL", "") or None
 
-# Optional shared-secret token.  Set DEMO_TOKEN in .env to enable enforcement.
-# Leave empty for open access (local development).
-_DEMO_TOKEN = os.environ.get("DEMO_TOKEN", "") or None
+# Optional shared-secret bearer token for general API access.
+# Set API_KEY in .env to enable enforcement; leave empty for open access.
+_API_KEY = os.environ.get("API_KEY", "") or None
+
+# Optional second token that unlocks premium (expensive) models in the UI
+# and in the API.  Sent by the browser as X-Premium-Key when the visitor
+# arrived via ?key=<secret>.  Leave empty to disable the premium tier.
+_PREMIUM_TOKEN = os.environ.get("PREMIUM_TOKEN", "") or None
 
 
 async def _verify_token(authorization: str | None = Header(None)) -> None:
-    """Dependency: reject requests that don't carry the configured bearer token."""
-    if _DEMO_TOKEN is None:
-        return  # token enforcement disabled
-    if authorization != f"Bearer {_DEMO_TOKEN}":
-        raise HTTPException(status_code=401, detail="Missing or invalid token.")
+    """Dependency: reject requests that don't carry the configured API_KEY."""
+    if _API_KEY is None:
+        return  # enforcement disabled
+    if authorization != f"Bearer {_API_KEY}":
+        raise HTTPException(status_code=401, detail="Missing or invalid API key.")
 
 from connectors import get_available_connectors, get_connector  # noqa: E402
 
@@ -63,7 +68,12 @@ _HTML_FILE = Path(__file__).parent / "static" / "index.html"
 # ---------------------------------------------------------------------------
 
 
-def _resolve_call_fn(provider_id: str | None, model_id: str | None, timeout: int = 300):
+def _resolve_call_fn(
+    provider_id: str | None,
+    model_id: str | None,
+    timeout: int = 300,
+    premium_key: str | None = None,
+):
     connectors = get_available_connectors()
     if not connectors:
         raise HTTPException(status_code=503, detail="No providers configured. Set at least one API key.")
@@ -76,6 +86,10 @@ def _resolve_call_fn(provider_id: str | None, model_id: str | None, timeout: int
     model = model_id or connector.default_model
     if model not in connector.models():
         raise HTTPException(status_code=400, detail=f"Model {model!r} not available for provider {connector.id!r}")
+    # Enforce premium gate: if the model is not in standard_models(), require the premium key.
+    if _PREMIUM_TOKEN and model not in connector.standard_models():
+        if premium_key != _PREMIUM_TOKEN:
+            raise HTTPException(status_code=403, detail=f"Model {model!r} requires the premium key.")
     return connector.make_call_fn(model, timeout=timeout)
 
 
@@ -134,6 +148,7 @@ def _run_evaluation(
     model_id: str | None,
     n: int = 5,
     seed: int | None = None,
+    premium_key: str | None = None,
 ) -> dict:
     """Sample n bibl elements, annotate each, compute metrics vs gold standard.
 
@@ -148,7 +163,7 @@ def _run_evaluation(
     from tei_annotator.pipeline import annotate
     from tei_annotator.schemas.blbl import build_blbl_schema
 
-    call_fn = _resolve_call_fn(provider_id, model_id)
+    call_fn = _resolve_call_fn(provider_id, model_id, premium_key=premium_key)
     endpoint = EndpointConfig(
         capability=EndpointCapability.TEXT_GENERATION,
         call_fn=call_fn,
@@ -158,12 +173,8 @@ def _run_evaluation(
     rng = random.Random(seed)
     samples = rng.sample(bibls, min(n, len(bibls)))
 
-    per_result = []
-    sample_texts = []
-    t0 = time.monotonic()
-    for el in samples:
+    def _evaluate_one(el):
         plain_text, gold_spans = extract_spans(el)
-        sample_texts.append(plain_text)
         ann_result = annotate(plain_text, schema, endpoint, gliner_model=_GLINER_MODEL)
         try:
             _parser = etree.XMLParser(recover=True)
@@ -171,7 +182,15 @@ def _run_evaluation(
         except Exception:
             pred_el = etree.Element("bibl")
         _, pred_spans = extract_spans(pred_el)
-        per_result.append(compute_metrics(gold_spans, pred_spans, mode=MatchMode.TEXT))
+        return plain_text, compute_metrics(gold_spans, pred_spans, mode=MatchMode.TEXT)
+
+    from concurrent.futures import ThreadPoolExecutor
+    t0 = time.monotonic()
+    with ThreadPoolExecutor(max_workers=min(len(samples), 8)) as pool:
+        results = list(pool.map(_evaluate_one, samples))
+
+    sample_texts = [r[0] for r in results]
+    per_result = [r[1] for r in results]
 
     elapsed = time.monotonic() - t0
     agg = aggregate(per_result)
@@ -228,23 +247,28 @@ async def index():
 
 
 @app.get("/api/config")
-async def api_config():
-    """Return server configuration needed by the SPA on startup."""
+async def api_config(key: str | None = None):
+    """Return server configuration needed by the SPA on startup.
+
+    Pass *key* (the PREMIUM_TOKEN) to unlock premium models in the response.
+    """
+    premium = bool(_PREMIUM_TOKEN and key == _PREMIUM_TOKEN)
     providers = []
     for c in get_available_connectors():
-        models = c.models()
-        if _SELECTED_PROVIDER == c.id and _SELECTED_MODEL_ID in models:
+        all_models = c.models()
+        visible_models = all_models if premium else c.standard_models()
+        if _SELECTED_PROVIDER == c.id and _SELECTED_MODEL_ID in visible_models:
             default_model = _SELECTED_MODEL_ID
         else:
-            default_model = c.default_model
+            default_model = c.default_model if c.default_model in visible_models else visible_models[0]
         providers.append({
             "id": c.id,
             "name": c.name,
             "description": c.description,
-            "models": models,
+            "models": visible_models,
             "default_model": default_model,
         })
-    return {"providers": providers, "token": _DEMO_TOKEN}
+    return {"providers": providers, "token": _API_KEY, "premium": premium}
 
 
 @app.get("/api/sample")
@@ -300,7 +324,11 @@ class AnnotateResponse(BaseModel):
 
 
 @app.post("/api/annotate", response_model=AnnotateResponse)
-async def annotate_api(body: AnnotateRequest, _: None = Depends(_verify_token)):
+async def annotate_api(
+    body: AnnotateRequest,
+    _: None = Depends(_verify_token),
+    x_premium_key: str | None = Header(None),
+):
     """
     Annotate *text* and return the XML result.
 
@@ -313,7 +341,7 @@ async def annotate_api(body: AnnotateRequest, _: None = Depends(_verify_token)):
     from tei_annotator.pipeline import annotate
     from tei_annotator.schemas.blbl import build_blbl_schema
 
-    call_fn = _resolve_call_fn(body.provider, body.model)
+    call_fn = _resolve_call_fn(body.provider, body.model, premium_key=x_premium_key)
 
     if body.tei_schema is not None:
         schema = _schema_from_dict(body.tei_schema.model_dump())
@@ -357,7 +385,11 @@ class EvaluateRequest(BaseModel):
 
 
 @app.post("/api/evaluate")
-async def evaluate_api(body: EvaluateRequest, _: None = Depends(_verify_token)):
+async def evaluate_api(
+    body: EvaluateRequest,
+    _: None = Depends(_verify_token),
+    x_premium_key: str | None = Header(None),
+):
     """
     Sample *n* bibliographic entries from the test fixture, annotate each with
     the chosen model, and return precision/recall/F1 against the gold standard.
@@ -368,7 +400,10 @@ async def evaluate_api(body: EvaluateRequest, _: None = Depends(_verify_token)):
     """
     try:
         import asyncio
-        return await asyncio.to_thread(_run_evaluation, body.provider, body.model, n=body.n, seed=body.seed)
+        return await asyncio.to_thread(
+            _run_evaluation, body.provider, body.model,
+            n=body.n, seed=body.seed, premium_key=x_premium_key,
+        )
     except HTTPException:
         raise
     except Exception as exc:

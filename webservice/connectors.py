@@ -59,18 +59,27 @@ class Connector(ABC):
     def description(self) -> str:
         """One-sentence description of the provider."""
 
+    # Subclasses declare their model list here.
+    # Prefix a model name with '*' to mark it as premium-only.
+    # The '*' is stripped before the ID is passed to any API call.
+    _MODELS: list[str] = []
+
     @abstractmethod
     def is_available(self) -> bool:
         """Return True iff the required credentials are present in the environment."""
 
-    @abstractmethod
     def models(self) -> list[str]:
-        """Return the list of model IDs available for this connector."""
+        """Return all model IDs (premium and standard), with '*' stripped."""
+        return [m.lstrip("*") for m in self._MODELS]
+
+    def standard_models(self) -> list[str]:
+        """Return only non-premium model IDs (those not prefixed with '*')."""
+        return [m for m in self._MODELS if not m.startswith("*")]
 
     @property
     def default_model(self) -> str:
         """The model pre-selected in the UI (override to customise)."""
-        return self.models()[0]
+        return self.standard_models()[0] if self.standard_models() else self.models()[0]
 
     @abstractmethod
     def make_call_fn(self, model_id: str, timeout: int = 300) -> Callable[[str], str]:
@@ -88,9 +97,9 @@ class HFConnector(Connector):
     _BASE_URL = "https://router.huggingface.co/v1"
 
     _MODELS = [
-        "meta-llama/Llama-3.1-70B-Instruct",
         "Qwen/Qwen3-14B",
-        "deepseek-ai/DeepSeek-R1-Distill-Llama-70B"
+        "*meta-llama/Llama-3.1-70B-Instruct",
+        "*deepseek-ai/DeepSeek-R1-Distill-Llama-70B",
     ]
 
     @property
@@ -107,9 +116,6 @@ class HFConnector(Connector):
 
     def is_available(self) -> bool:
         return bool(os.environ.get("HF_TOKEN"))
-
-    def models(self) -> list[str]:
-        return list(self._MODELS)
 
     def make_call_fn(self, model_id: str, timeout: int = 300) -> Callable[[str], str]:
         token = os.environ.get("HF_TOKEN", "")
@@ -142,7 +148,9 @@ class GeminiConnector(Connector):
 
     _BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models"
     _MODELS = [
-        "gemini-2.0-flash"
+        "gemini-2.5-flash-lite",
+        "gemini-2.5-flash",
+        "*gemini-2.5-pro",
     ]
 
     @property
@@ -160,17 +168,19 @@ class GeminiConnector(Connector):
     def is_available(self) -> bool:
         return bool(os.environ.get("GEMINI_API_KEY"))
 
-    def models(self) -> list[str]:
-        return list(self._MODELS)
-
     def make_call_fn(self, model_id: str, timeout: int = 300) -> Callable[[str], str]:
         api_key = os.environ.get("GEMINI_API_KEY", "")
         url = f"{self._BASE_URL}/{model_id}:generateContent?key={api_key}"
 
+        # Disable thinking for 2.5 models (thinkingBudget=0); not valid for older models.
+        gen_config: dict = {"temperature": 0.1}
+        if "2.5" in model_id:
+            gen_config["thinkingConfig"] = {"thinkingBudget": 0}
+
         def call_fn(prompt: str) -> str:
             payload = {
                 "contents": [{"parts": [{"text": prompt}]}],
-                "generationConfig": {"temperature": 0.1},
+                "generationConfig": gen_config,
             }
             result = _post_json(url, payload, {"Content-Type": "application/json"}, timeout)
             return result["candidates"][0]["content"]["parts"][0]["text"]
@@ -214,6 +224,10 @@ class KISSKIConnector(Connector):
             self._cached_models = self._fetch_models()
         return list(self._cached_models)
 
+    def standard_models(self) -> list[str]:
+        # All KISSKI models are standard (no premium tier).
+        return self.models()
+
     def _fetch_models(self) -> list[str]:
         """Fetch model list from /models and keep only chat-capable ones."""
         api_key = os.environ.get("KISSKI_API_KEY", "")
@@ -256,6 +270,108 @@ class KISSKIConnector(Connector):
 
 
 # ---------------------------------------------------------------------------
+# OpenAI
+# ---------------------------------------------------------------------------
+
+
+class OpenAIConnector(Connector):
+    """OpenAI chat completions API."""
+
+    _BASE_URL = "https://api.openai.com/v1"
+    _MODELS = [
+        "gpt-5-nano",
+        "*o4-mini"
+    ]
+
+    @property
+    def id(self) -> str:
+        return "openai"
+
+    @property
+    def name(self) -> str:
+        return "OpenAI"
+
+    @property
+    def description(self) -> str:
+        return "OpenAI GPT models via the chat completions API (requires OPENAI_API_KEY)."
+
+    def is_available(self) -> bool:
+        return bool(os.environ.get("OPENAI_API_KEY"))
+
+    def make_call_fn(self, model_id: str, timeout: int = 300) -> Callable[[str], str]:
+        api_key = os.environ.get("OPENAI_API_KEY", "")
+        url = f"{self._BASE_URL}/chat/completions"
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}",
+        }
+
+        def call_fn(prompt: str) -> str:
+            payload = {
+                "model": model_id,
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": 0.1,
+            }
+            result = _post_json(url, payload, headers, timeout)
+            return result["choices"][0]["message"]["content"]
+
+        call_fn.__name__ = f"openai/{model_id}"
+        return call_fn
+
+
+# ---------------------------------------------------------------------------
+# Anthropic Claude
+# ---------------------------------------------------------------------------
+
+
+class ClaudeConnector(Connector):
+    """Anthropic Claude via the Messages API."""
+
+    _BASE_URL = "https://api.anthropic.com/v1/messages"
+    _API_VERSION = "2023-06-01"
+    _MODELS = [
+        "claude-haiku-4-5-20251001",
+        "*claude-sonnet-4-6",
+        "*claude-opus-4-6",
+    ]
+
+    @property
+    def id(self) -> str:
+        return "claude"
+
+    @property
+    def name(self) -> str:
+        return "Anthropic Claude"
+
+    @property
+    def description(self) -> str:
+        return "Anthropic Claude models via the Messages API (requires ANTHROPIC_API_KEY)."
+
+    def is_available(self) -> bool:
+        return bool(os.environ.get("ANTHROPIC_API_KEY"))
+
+    def make_call_fn(self, model_id: str, timeout: int = 300) -> Callable[[str], str]:
+        api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+        headers = {
+            "Content-Type": "application/json",
+            "x-api-key": api_key,
+            "anthropic-version": self._API_VERSION,
+        }
+
+        def call_fn(prompt: str) -> str:
+            payload = {
+                "model": model_id,
+                "max_tokens": 4096,
+                "messages": [{"role": "user", "content": prompt}],
+            }
+            result = _post_json(self._BASE_URL, payload, headers, timeout)
+            return result["content"][0]["text"]
+
+        call_fn.__name__ = f"claude/{model_id}"
+        return call_fn
+
+
+# ---------------------------------------------------------------------------
 # Registry
 # ---------------------------------------------------------------------------
 
@@ -263,6 +379,8 @@ _ALL_CONNECTORS: list[Connector] = [
     HFConnector(),
     GeminiConnector(),
     KISSKIConnector(),
+    OpenAIConnector(),
+    ClaudeConnector(),
 ]
 
 

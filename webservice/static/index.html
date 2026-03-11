@@ -448,7 +448,7 @@
       const n = Math.max(1, parseInt(this.value, 10) || 5);
       textarea.value = 'Loading samples…';
       try {
-        const resp = await fetch(`/api/sample?n=${n}`);
+        const resp = await fetch(`/api/sample?n=${n}`, {headers: authHeaders({})});
         const samples = await resp.json();
         textarea.value = samples.map(s => s.text).join('\n\n---\n\n');
       } catch {
@@ -612,20 +612,27 @@
       copyTable('eval-table', this);
     });
 
-    // Bearer token received from /api/config (null when server has no DEMO_TOKEN set).
+    // Bearer token received from /api/config (null when server has no API_KEY set).
     let apiToken = null;
+
+    // Premium key from URL ?key= param, persisted in sessionStorage for the tab.
+    const _urlKey = new URLSearchParams(location.search).get('key');
+    const premiumKey = _urlKey ?? sessionStorage.getItem('premiumKey');
+    if (premiumKey) sessionStorage.setItem('premiumKey', premiumKey);
 
     // Return headers for authenticated API calls.
     function authHeaders(extra) {
       const h = Object.assign({'Content-Type': 'application/json'}, extra);
       if (apiToken) h['Authorization'] = 'Bearer ' + apiToken;
+      if (premiumKey) h['X-Premium-Key'] = premiumKey;
       return h;
     }
 
     // Initialise from /api/config
     (async function init() {
       try {
-        const cfg = await fetch('/api/config').then(r => r.json());
+        const configUrl = '/api/config' + (premiumKey ? '?key=' + encodeURIComponent(premiumKey) : '');
+        const cfg = await fetch(configUrl).then(r => r.json());
         apiToken = cfg.token || null;
         if (!cfg.providers || cfg.providers.length === 0) {
           document.getElementById('no-token').hidden = false;
@@ -646,6 +653,12 @@
           });
           modelSel.appendChild(grp);
         });
+        if (cfg.premium) {
+          const badge = document.createElement('span');
+          badge.textContent = ' ★ Premium models enabled';
+          badge.style.cssText = 'font-size:0.8em;color:#7c3aed;font-weight:600;margin-left:0.5em;';
+          document.getElementById('model-select-wrap').appendChild(badge);
+        }
         document.getElementById('main-ui').hidden = false;
         if (evalCheck.checked) evalCheck.dispatchEvent(new Event('change'));
       } catch (e) {
