@@ -9,7 +9,7 @@ python_version: '3.12'
 app_file: app.py
 pinned: false
 license: mit
-short_description: Demo for the TEI Annotator library — annotate bibliographic text with TEI XML tags using open LLMs
+short_description: Demo for cboulanger/tei-annotator
 ---
 
 # tei-annotator

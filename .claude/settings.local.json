@@ -1,7 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "Bash(xargs grep -l \"webservice\\\\|fastapi\\\\|flask\")"
+      "Bash(xargs grep -l \"webservice\\\\|fastapi\\\\|flask\")",
+      "WebSearch",
+      "WebFetch(domain:router.huggingface.co)",
+      "Bash(/Users/cboulanger/.local/bin/hf auth:*)"
     ]
   }
 }
