@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TEI Annotator</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, sans-serif;
+      background: #f5f5f5;
+      color: #222;
+      padding: 2rem;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    h1 { font-size: 1.5rem; margin-bottom: 0.25rem; }
+    p.subtitle { color: #555; font-size: 0.9rem; margin-bottom: 1.5rem; }
+    label { display: block; font-weight: 600; margin-bottom: 0.3rem; font-size: 0.9rem; }
+    textarea {
+      width: 100%;
+      height: 180px;
+      padding: 0.6rem;
+      font-family: monospace;
+      font-size: 0.85rem;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      resize: vertical;
+    }
+    textarea[readonly] { background: #f9fafb; color: #555; }
+    select {
+      padding: 0.4rem 0.6rem;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 0.9rem;
+    }
+    .row { display: flex; align-items: center; gap: 1rem; margin-top: 0.75rem; flex-wrap: wrap; }
+    .eval-row { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.6rem; }
+    .eval-row input[type="checkbox"] { width: 1rem; height: 1rem; cursor: pointer; }
+    .eval-row label { font-weight: normal; font-size: 0.9rem; margin: 0; cursor: pointer; }
+    button {
+      padding: 0.45rem 1.2rem;
+      background: #2563eb;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      font-size: 0.9rem;
+      cursor: pointer;
+    }
+    button:hover:not(:disabled) { background: #1d4ed8; }
+    button:disabled { background: #93c5fd; cursor: not-allowed; }
+    .sending-label { display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem; color: #555; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner {
+      width: 1rem; height: 1rem;
+      border: 2px solid #d1d5db;
+      border-top-color: #2563eb;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      flex-shrink: 0;
+    }
+    .result-box {
+      margin-top: 1.5rem;
+      background: #fff;
+      border: 1px solid #d1d5db;
+      border-radius: 4px;
+      padding: 1rem;
+    }
+    .result-box h2 { font-size: 1rem; margin-bottom: 0.5rem; color: #374151; }
+    pre {
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: monospace;
+      font-size: 0.82rem;
+      line-height: 1.5;
+      background: #f9fafb;
+      padding: 0.75rem;
+      border-radius: 3px;
+    }
+    .error {
+      margin-top: 1.5rem;
+      background: #fef2f2;
+      border: 1px solid #fca5a5;
+      border-radius: 4px;
+      padding: 0.75rem 1rem;
+      color: #b91c1c;
+      font-size: 0.9rem;
+    }
+    .no-token {
+      margin-top: 1rem;
+      padding: 0.75rem 1rem;
+      background: #fffbeb;
+      border: 1px solid #fcd34d;
+      border-radius: 4px;
+      font-size: 0.9rem;
+      color: #92400e;
+    }
+    .elapsed { font-weight: normal; color: #6b7280; font-size: 0.85rem; margin-left: 0.4rem; }
+    /* Evaluation results */
+    .eval-results { margin-top: 1.5rem; }
+    .eval-results h2 { font-size: 1rem; margin-bottom: 0.75rem; color: #374151; }
+    .eval-summary { display: flex; gap: 1.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
+    .metric-card {
+      background: #fff;
+      border: 1px solid #d1d5db;
+      border-radius: 4px;
+      padding: 0.75rem 1.25rem;
+      text-align: center;
+      min-width: 100px;
+    }
+    .metric-card .metric-value { font-size: 1.5rem; font-weight: 700; color: #1d4ed8; }
+    .metric-card .metric-label { font-size: 0.75rem; color: #6b7280; margin-top: 0.15rem; }
+    .eval-table-wrap {
+      background: #fff;
+      border: 1px solid #d1d5db;
+      border-radius: 4px;
+      overflow-x: auto;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    th, td { padding: 0.45rem 0.75rem; text-align: left; border-bottom: 1px solid #e5e7eb; }
+    th { background: #f9fafb; font-weight: 600; color: #374151; }
+    td:not(:first-child) { font-family: monospace; }
+    tr:last-child td { border-bottom: none; }
+    .f1-high { color: #16a34a; font-weight: 600; }
+    .f1-mid  { color: #d97706; }
+    .f1-low  { color: #dc2626; }
+    /* Progress */
+    .progress-wrap { margin-top: 1.5rem; }
+    .progress-label { font-size: 0.9rem; color: #374151; margin-bottom: 0.4rem; }
+    progress {
+      width: 100%; height: 0.6rem;
+      appearance: none; border: none; border-radius: 9999px;
+      background: #e5e7eb; overflow: hidden;
+    }
+    progress::-webkit-progress-bar { background: #e5e7eb; border-radius: 9999px; }
+    progress::-webkit-progress-value { background: #2563eb; border-radius: 9999px; transition: width 0.3s; }
+    progress::-moz-progress-bar { background: #2563eb; border-radius: 9999px; }
+    /* Comparison table */
+    .compare-wrap {
+      margin-top: 1.5rem;
+      background: #fff;
+      border: 1px solid #d1d5db;
+      border-radius: 4px;
+      overflow-x: auto;
+    }
+    .compare-wrap h2 { font-size: 1rem; padding: 0.75rem 1rem 0; color: #374151; margin-bottom: 0.5rem; }
+    .rank-1 td:nth-child(2) { font-weight: 700; color: #1d4ed8; }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+  <h1>TEI Annotator</h1>
+  <p class="subtitle">This demo application annotates bibliographic information with TEI XML tags such as <code>tei:author</code>, <code>tei:title</code> etc. Paste a bibliographic entry below or run evaluation against test examples.</p>
+
+  <div id="no-token" class="no-token" hidden>
+    No HuggingFace token is configured. Set <code>HF_TOKEN</code> in
+    <code>webservice/.env</code> and restart the server.
+    On HuggingFace Spaces, <code>HF_TOKEN</code> is injected automatically.
+  </div>
+
+  <div id="main-ui" hidden>
+    <label for="text">Input text</label>
+    <textarea id="text" placeholder="Paste a bibliographic entry here…"></textarea>
+
+    <div class="eval-row">
+      <input type="checkbox" id="eval-mode">
+      <label for="eval-mode">Evaluate against test examples (5 random samples from the gold standard corpus)</label>
+    </div>
+
+    <div class="row">
+      <div>
+        <label for="model" style="display:inline; margin-right:0.4rem;">Model</label>
+        <select id="model"></select>
+      </div>
+      <button id="submit-btn">Annotate</button>
+      <button id="eval-all-btn" hidden>Evaluate all models</button>
+      <span id="sending-label" class="sending-label" hidden>
+        <span class="spinner"></span><span id="sending-text"></span>
+      </span>
+    </div>
+  </div>
+
+  <div id="progress-wrap" class="progress-wrap" hidden>
+    <div id="progress-label" class="progress-label"></div>
+    <progress id="progress-bar" value="0" max="1"></progress>
+  </div>
+
+  <div id="compare-wrap" class="compare-wrap" hidden>
+    <h2>Model Comparison <span id="compare-elapsed" class="elapsed"></span></h2>
+    <table>
+      <thead>
+        <tr><th>#</th><th>Model</th><th>Precision</th><th>Recall</th><th>F1 (micro)</th><th>Time (s)</th></tr>
+      </thead>
+      <tbody id="compare-tbody"></tbody>
+    </table>
+  </div>
+
+  <div id="error-box" class="error" hidden></div>
+  <div id="result-box" class="result-box" hidden>
+    <h2>Annotated XML <span id="result-elapsed" class="elapsed"></span></h2>
+    <pre id="result-xml"></pre>
+  </div>
+  <div id="eval-results" class="eval-results" hidden>
+    <h2 id="eval-heading">Evaluation Results</h2>
+    <div class="eval-summary" id="eval-summary"></div>
+    <div class="eval-table-wrap">
+      <table>
+        <thead>
+          <tr><th>Element</th><th>Precision</th><th>Recall</th><th>F1</th><th>TP</th><th>FP</th><th>FN</th></tr>
+        </thead>
+        <tbody id="eval-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    const textarea    = document.getElementById('text');
+    const evalCheck   = document.getElementById('eval-mode');
+    const modelSel    = document.getElementById('model');
+    const submitBtn   = document.getElementById('submit-btn');
+    const evalAllBtn  = document.getElementById('eval-all-btn');
+    const sendLabel   = document.getElementById('sending-label');
+    const sendText    = document.getElementById('sending-text');
+    const errorBox    = document.getElementById('error-box');
+    const resultBox   = document.getElementById('result-box');
+    const evalDiv     = document.getElementById('eval-results');
+    const progressWrap = document.getElementById('progress-wrap');
+    const progressBar  = document.getElementById('progress-bar');
+    const progressLbl  = document.getElementById('progress-label');
+    const compareWrap  = document.getElementById('compare-wrap');
+
+    let allModels = [];
+
+    function fmt(v) { return v.toFixed(3); }
+
+    function showError(msg) {
+      errorBox.textContent = msg;
+      errorBox.hidden = false;
+    }
+
+    function clearResults() {
+      errorBox.hidden = true;
+      resultBox.hidden = true;
+      evalDiv.hidden = true;
+      compareWrap.hidden = true;
+      progressWrap.hidden = true;
+    }
+
+    function setSpinner(active, msg) {
+      sendLabel.hidden = !active;
+      sendText.textContent = msg || '';
+    }
+
+    function setProgress(done, total, msg) {
+      progressWrap.hidden = false;
+      progressBar.max = total;
+      progressBar.value = done;
+      progressLbl.textContent = msg;
+    }
+
+    function renderAnnotation(data) {
+      document.getElementById('result-xml').textContent = data.xml;
+      document.getElementById('result-elapsed').textContent =
+        data.elapsed_seconds != null ? `(${data.elapsed_seconds}s)` : '';
+      resultBox.hidden = false;
+    }
+
+    function renderEvalResults(data) {
+      document.getElementById('eval-heading').innerHTML =
+        `Evaluation Results &mdash; ${data.model} &mdash; ${data.n_samples} samples` +
+        (data.elapsed_seconds != null
+          ? ` <span class="elapsed">(${data.elapsed_seconds}s)</span>` : '');
+
+      const summary = document.getElementById('eval-summary');
+      summary.innerHTML = [
+        ['Precision', data.micro_precision],
+        ['Recall',    data.micro_recall],
+        ['F1 (micro)', data.micro_f1],
+      ].map(([label, val]) => `
+        <div class="metric-card">
+          <div class="metric-value">${fmt(val)}</div>
+          <div class="metric-label">${label}</div>
+        </div>`).join('');
+
+      const tbody = document.getElementById('eval-tbody');
+      tbody.innerHTML = Object.entries(data.per_element).map(([tag, m]) => {
+        const f1cls = m.f1 >= 0.8 ? 'f1-high' : m.f1 >= 0.5 ? 'f1-mid' : 'f1-low';
+        return `<tr>
+          <td>${tag}</td>
+          <td>${fmt(m.precision)}</td>
+          <td>${fmt(m.recall)}</td>
+          <td class="${f1cls}">${fmt(m.f1)}</td>
+          <td>${m.tp}</td><td>${m.fp}</td><td>${m.fn}</td>
+        </tr>`;
+      }).join('');
+
+      evalDiv.hidden = false;
+    }
+
+    // Eval mode checkbox
+    evalCheck.addEventListener('change', async function () {
+      clearResults();
+      if (this.checked) {
+        textarea.readOnly = true;
+        textarea.removeAttribute('required');
+        submitBtn.textContent = 'Evaluate';
+        evalAllBtn.hidden = false;
+        textarea.value = 'Loading samples…';
+        try {
+          const resp = await fetch('/api/sample?n=5');
+          const samples = await resp.json();
+          textarea.value = samples.map(s => s.text).join('\n\n---\n\n');
+        } catch {
+          textarea.value = '(Failed to load samples)';
+        }
+      } else {
+        textarea.readOnly = false;
+        textarea.value = '';
+        submitBtn.textContent = 'Annotate';
+        evalAllBtn.hidden = true;
+      }
+    });
+
+    // Submit
+    submitBtn.addEventListener('click', async function () {
+      clearResults();
+      const model = modelSel.value;
+      const isEval = evalCheck.checked;
+
+      if (!isEval && !textarea.value.trim()) {
+        showError('Please enter some text to annotate.');
+        return;
+      }
+
+      submitBtn.disabled = true;
+      setSpinner(true, isEval ? 'Running evaluation… this may take a while.' : 'Sending request…');
+
+      try {
+        let resp, data;
+        if (isEval) {
+          resp = await fetch('/api/evaluate', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ model, n: 5 }),
+          });
+        } else {
+          resp = await fetch('/api/annotate', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ text: textarea.value, model }),
+          });
+        }
+
+        data = await resp.json();
+
+        if (!resp.ok) {
+          showError(data.detail ?? `Error ${resp.status}`);
+        } else if (isEval) {
+          renderEvalResults(data);
+        } else {
+          renderAnnotation(data);
+        }
+      } catch (e) {
+        showError(`Network error: ${e.message}`);
+      } finally {
+        submitBtn.disabled = false;
+        setSpinner(false);
+      }
+    });
+
+    // Evaluate all models
+    evalAllBtn.addEventListener('click', async function () {
+      clearResults();
+      const seed = Math.floor(Math.random() * 1e9);
+      const models = allModels;
+      const total = models.length;
+      const results = [];
+      const t0 = performance.now();
+
+      submitBtn.disabled = true;
+      evalAllBtn.disabled = true;
+
+      for (let i = 0; i < models.length; i++) {
+        const model = models[i];
+        const shortName = model.split('/').pop();
+        setProgress(i, total, `(${i + 1}/${total}) Evaluating ${shortName}…`);
+        try {
+          const resp = await fetch('/api/evaluate', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ model, n: 5, seed }),
+          });
+          const data = await resp.json();
+          if (resp.ok) {
+            results.push(data);
+          } else {
+            results.push({ model, error: data.detail ?? `Error ${resp.status}` });
+          }
+        } catch (e) {
+          results.push({ model, error: e.message });
+        }
+        setProgress(i + 1, total, i + 1 < total
+          ? `(${i + 1}/${total}) done, continuing…`
+          : `All ${total} models evaluated.`);
+      }
+
+      const elapsed = ((performance.now() - t0) / 1000).toFixed(1);
+      progressWrap.hidden = true;
+
+      // Sort by F1 descending (errors sort last)
+      results.sort((a, b) => (b.micro_f1 ?? -1) - (a.micro_f1 ?? -1));
+
+      document.getElementById('compare-elapsed').textContent = `(${elapsed}s total)`;
+      const tbody = document.getElementById('compare-tbody');
+      tbody.innerHTML = results.map((r, i) => {
+        if (r.error) {
+          return `<tr><td>${i + 1}</td><td>${r.model}</td><td colspan="4" style="color:#b91c1c">${r.error}</td></tr>`;
+        }
+        const f1cls = r.micro_f1 >= 0.8 ? 'f1-high' : r.micro_f1 >= 0.5 ? 'f1-mid' : 'f1-low';
+        return `<tr class="${i === 0 ? 'rank-1' : ''}">
+          <td>${i + 1}</td>
+          <td>${r.model}</td>
+          <td>${fmt(r.micro_precision)}</td>
+          <td>${fmt(r.micro_recall)}</td>
+          <td class="${f1cls}">${fmt(r.micro_f1)}</td>
+          <td>${r.elapsed_seconds ?? '—'}</td>
+        </tr>`;
+      }).join('');
+
+      compareWrap.hidden = false;
+      submitBtn.disabled = false;
+      evalAllBtn.disabled = false;
+    });
+
+    // Initialise from /api/config
+    (async function init() {
+      try {
+        const cfg = await fetch('/api/config').then(r => r.json());
+        if (!cfg.hf_token_set) {
+          document.getElementById('no-token').hidden = false;
+          return;
+        }
+        allModels = cfg.models;
+        cfg.models.forEach(m => {
+          const opt = document.createElement('option');
+          opt.value = opt.textContent = m;
+          if (m === cfg.default_model) opt.selected = true;
+          modelSel.appendChild(opt);
+        });
+        document.getElementById('main-ui').hidden = false;
+      } catch (e) {
+        document.getElementById('no-token').hidden = false;
+        document.getElementById('no-token').textContent =
+          `Failed to load configuration: ${e.message}`;
+      }
+    })();
+  </script>
+</body>
+</html>
