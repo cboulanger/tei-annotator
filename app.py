@@ -19,19 +19,6 @@ from pathlib import Path
 
 import gradio as gr
 
-# `spaces` is injected automatically by HuggingFace Spaces; fall back to a
-# no-op decorator so the app also runs locally without it installed.
-try:
-    import spaces
-except ImportError:
-    class spaces:  # type: ignore[no-redef]
-        @staticmethod
-        def GPU(fn=None, *, duration=60):
-            # No-op decorator — spaces not installed (local dev)
-            def decorator(f):
-                return f
-            return decorator(fn) if fn is not None else decorator
-
 # ---------------------------------------------------------------------------
 # Config (mirrors webservice/main.py — keep in sync if you change models)
 # ---------------------------------------------------------------------------
@@ -92,7 +79,6 @@ def _make_call_fn(model: str, timeout: int = 120):
 # ---------------------------------------------------------------------------
 
 
-@spaces.GPU(duration=300)
 def do_annotate(text: str, model: str):
     if not _HF_TOKEN:
         return "", "HF_TOKEN is not set. Add it as a Space secret."
@@ -131,7 +117,6 @@ def do_load_samples(n: int):
     return "\n\n".join(extract_spans(el)[0] for el in samples)
 
 
-@spaces.GPU(duration=300)
 def do_evaluate(model: str, n: int):
     if not _HF_TOKEN:
         return None, "HF_TOKEN is not set. Add it as a Space secret."
