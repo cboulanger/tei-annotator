@@ -14,10 +14,34 @@ from __future__ import annotations
 
 import json
 import os
+import threading
+import time
 import urllib.error
 import urllib.request
 from abc import ABC, abstractmethod
 from typing import Callable
+
+
+# ---------------------------------------------------------------------------
+# Rate limiter
+# ---------------------------------------------------------------------------
+
+
+class _RateLimiter:
+    """Enforce a minimum interval between calls (thread-safe)."""
+
+    def __init__(self, rate_per_minute: int) -> None:
+        self._interval = 60.0 / rate_per_minute
+        self._lock = threading.Lock()
+        self._last: float = 0.0
+
+    def acquire(self) -> None:
+        with self._lock:
+            now = time.monotonic()
+            wait = self._interval - (now - self._last)
+            if wait > 0:
+                time.sleep(wait)
+            self._last = time.monotonic()
 
 
 # ---------------------------------------------------------------------------
@@ -201,6 +225,8 @@ class KISSKIConnector(Connector):
     # Fallback used when the /models endpoint is unreachable.
     _FALLBACK_MODELS = ["llama-3.3-70b-instruct", "mistral-large-instruct"]
 
+    _rate_limiter = _RateLimiter(rate_per_minute=10)
+
     def __init__(self) -> None:
         self._cached_models: list[str] | None = None
 
@@ -257,6 +283,7 @@ class KISSKIConnector(Connector):
         }
 
         def call_fn(prompt: str) -> str:
+            self._rate_limiter.acquire()
             payload = {
                 "model": model_id,
                 "messages": [{"role": "user", "content": prompt}],
