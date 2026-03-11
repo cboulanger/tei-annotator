@@ -157,7 +157,10 @@ def do_evaluate(model: str, n: int):
     t0 = time.monotonic()
     for el in samples:
         plain_text, gold_spans = extract_spans(el)
-        ann_result = annotate(plain_text, schema, endpoint, gliner_model=None)
+        try:
+            ann_result = annotate(plain_text, schema, endpoint, gliner_model=None)
+        except Exception as exc:
+            return None, f"Error during annotation: {exc}"
         try:
             parser = etree.XMLParser(recover=True)
             pred_el = etree.fromstring(f"<bibl>{ann_result.xml}</bibl>".encode(), parser)
