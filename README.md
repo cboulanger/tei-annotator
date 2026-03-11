@@ -336,3 +336,4 @@ Integration tests are excluded from the default `pytest` run via `pyproject.toml
 [tool.pytest.ini_options]
 addopts = "-m 'not integration'"
 ```
+
