@@ -15,10 +15,14 @@ HF generates a `README.md` with YAML frontmatter. Make sure it contains at minim
 ```yaml
 ---
 sdk: gradio
-sdk_version: "5.0"
+sdk_version: "6.9.0"
+python_version: "3.12"
 app_file: app.py
+hardware: cpu-basic
 ---
 ```
+
+> **Why `cpu-basic`?** The app makes HTTP calls to external LLM APIs — it does not run any local GPU workloads. Using `cpu-basic` avoids the GPU-slot allocation overhead (5–15 s per request) and GPU-task timeout issues that come with ZeroGPU (`zero-a10g`) hardware.
 
 ## Step 2 — Push the repository
 
@@ -36,6 +40,8 @@ In your Space's **Settings → Variables and Secrets**, add a **Secret**:
 | Secret name | Value |
 | --- | --- |
 | `HF_TOKEN` | Your HuggingFace API token ([create one here](https://huggingface.co/settings/tokens)) |
+
+> **Token permissions required:** The token must have the **"Make calls to Inference Providers"** scope enabled (under "Inference" when creating/editing the token at https://huggingface.co/settings/tokens). Without this scope, all annotation and evaluation calls will return HTTP 403.
 
 The app shows a setup warning if this secret is missing.
 
@@ -55,7 +61,13 @@ Models are defined in `app.py` (`_HF_MODELS`), mirrored in `webservice/main.py`.
 
 ```bash
 uv sync --extra gradio
-uv run python app.py
+HF_TOKEN=hf_... uv run python app.py
 # opens at http://localhost:7860
-# click "Sign in with HuggingFace" — redirects through HF OAuth, then back to localhost
+```
+
+Set `HF_TOKEN` to a token with the "Make calls to Inference Providers" scope. You can also put it in a `.env` file at the repo root:
+
+```bash
+echo "HF_TOKEN=hf_..." > .env
+uv run python app.py
 ```

@@ -314,9 +314,11 @@ Two interfaces are provided:
 
 ```bash
 uv sync --extra gradio
-uv run python app.py
-# opens at http://localhost:7860 — click "Sign in with HuggingFace" to authenticate
+HF_TOKEN=hf_... uv run python app.py
+# opens at http://localhost:7860
 ```
+
+Set `HF_TOKEN` to a token with the **"Make calls to Inference Providers"** scope ([create/edit tokens here](https://huggingface.co/settings/tokens)). You can also put it in a `.env` file at the repo root instead of passing it inline.
 
 ### Running the FastAPI webservice locally
 

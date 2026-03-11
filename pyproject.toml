@@ -18,7 +18,7 @@ webservice = [
     "uvicorn[standard]>=0.30",
     "python-multipart>=0.0.9",
 ]
-gradio = ["gradio>=5.0"]
+gradio = ["gradio>=6.9"]
 
 [tool.pytest.ini_options]
 addopts = "-m 'not integration'"
