@@ -14,3 +14,4 @@ wheels/
 # Local files
 .local
 .server.pid
+.duckversions
