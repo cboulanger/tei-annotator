@@ -49,6 +49,19 @@
     }
     button:hover:not(:disabled) { background: #1d4ed8; }
     button:disabled { background: #93c5fd; cursor: not-allowed; }
+    .btn-copy {
+      padding: 0.25rem 0.7rem;
+      background: #f3f4f6;
+      color: #374151;
+      border: 1px solid #d1d5db;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      margin-left: 0.6rem;
+      vertical-align: middle;
+    }
+    .btn-copy:hover { background: #e5e7eb; }
+    .btn-copy.copied { background: #d1fae5; color: #065f46; border-color: #6ee7b7; }
     .sending-label { display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem; color: #555; }
     @keyframes spin { to { transform: rotate(360deg); } }
     .spinner {
@@ -145,6 +158,34 @@
     }
     .compare-wrap h2 { font-size: 1rem; padding: 0.75rem 1rem 0; color: #374151; margin-bottom: 0.5rem; }
     .rank-1 td:nth-child(2) { font-weight: 700; color: #1d4ed8; }
+    /* Dual listbox */
+    .model-compare-wrap {
+      margin-top: 0.75rem;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+    .compare-list-col { display: flex; flex-direction: column; gap: 0.3rem; }
+    .compare-list-col label { font-size: 0.85rem; font-weight: 600; color: #374151; }
+    .compare-list-col select {
+      width: 280px;
+      height: 140px;
+      font-family: monospace;
+      font-size: 0.8rem;
+      padding: 0.25rem;
+    }
+    .compare-list-btns {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 0.4rem;
+      padding-top: 1.4rem;
+    }
+    .compare-list-btns button {
+      padding: 0.3rem 0.7rem;
+      font-size: 0.85rem;
+    }
     [hidden] { display: none !important; }
   </style>
 </head>
@@ -153,9 +194,9 @@
   <p class="subtitle">This demo application annotates bibliographic information with TEI XML tags such as <code>tei:author</code>, <code>tei:title</code> etc. Paste a bibliographic entry below or run evaluation against test examples.</p>
 
   <div id="no-token" class="no-token" hidden>
-    No HuggingFace token is configured. Set <code>HF_TOKEN</code> in
-    <code>webservice/.env</code> and restart the server.
-    On HuggingFace Spaces, <code>HF_TOKEN</code> is injected automatically.
+    No provider is configured. Set at least one API key in
+    <code>webservice/.env</code> and restart the server
+    (<code>HF_TOKEN</code>, <code>GEMINI_API_KEY</code>, or <code>KISSKI_API_KEY</code>).
   </div>
 
   <div id="main-ui" hidden>
@@ -164,30 +205,53 @@
 
     <div class="eval-row">
       <input type="checkbox" id="eval-mode">
-      <label for="eval-mode">Evaluate against test examples (5 random samples from the gold standard corpus)</label>
+      <label for="eval-mode">Evaluate against test examples from the gold standard corpus</label>
     </div>
 
     <div class="row">
-      <div>
+      <div id="model-select-wrap">
         <label for="model" style="display:inline; margin-right:0.4rem;">Model</label>
         <select id="model"></select>
       </div>
+      <div id="n-samples-wrap" hidden>
+        <label for="n-samples" style="display:inline; margin-right:0.4rem;">Samples</label>
+        <input type="number" id="n-samples" value="5" min="1" max="100"
+               style="width:4.5rem; padding:0.4rem 0.5rem; border:1px solid #ccc; border-radius:4px; font-size:0.9rem;">
+      </div>
       <button id="submit-btn">Annotate</button>
-      <button id="eval-all-btn" hidden>Evaluate all models</button>
       <span id="sending-label" class="sending-label" hidden>
         <span class="spinner"></span><span id="sending-text"></span>
       </span>
     </div>
+
+    <div id="model-compare-wrap" class="model-compare-wrap" hidden>
+      <div class="compare-list-col">
+        <label for="models-available">Available models</label>
+        <select id="models-available" multiple></select>
+      </div>
+      <div class="compare-list-btns">
+        <button type="button" id="add-model-btn" title="Add to comparison">Add →</button>
+        <button type="button" id="remove-model-btn" title="Remove from comparison">← Remove</button>
+      </div>
+      <div class="compare-list-col">
+        <label for="models-selected">Models to compare</label>
+        <select id="models-selected" multiple></select>
+      </div>
+    </div>
   </div>
 
   <div id="progress-wrap" class="progress-wrap" hidden>
-    <div id="progress-label" class="progress-label"></div>
+    <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:0.4rem;">
+      <div id="progress-label" class="progress-label" style="flex:1; margin:0;"></div>
+      <button id="cancel-btn" type="button" hidden
+              style="padding:0.25rem 0.8rem; font-size:0.8rem; background:#dc2626;">Cancel</button>
+    </div>
     <progress id="progress-bar" value="0" max="1"></progress>
   </div>
 
   <div id="compare-wrap" class="compare-wrap" hidden>
-    <h2>Model Comparison <span id="compare-elapsed" class="elapsed"></span></h2>
-    <table>
+    <h2>Model Comparison <span id="compare-elapsed" class="elapsed"></span><button class="btn-copy" id="copy-compare-btn">Copy</button></h2>
+    <table id="compare-table">
       <thead>
         <tr><th>#</th><th>Model</th><th>Precision</th><th>Recall</th><th>F1 (micro)</th><th>Time (s)</th></tr>
       </thead>
@@ -201,10 +265,10 @@
     <pre id="result-xml"></pre>
   </div>
   <div id="eval-results" class="eval-results" hidden>
-    <h2 id="eval-heading">Evaluation Results</h2>
+    <h2 id="eval-heading">Evaluation Results<button class="btn-copy" id="copy-eval-btn">Copy</button></h2>
     <div class="eval-summary" id="eval-summary"></div>
     <div class="eval-table-wrap">
-      <table>
+      <table id="eval-table">
         <thead>
           <tr><th>Element</th><th>Precision</th><th>Recall</th><th>F1</th><th>TP</th><th>FP</th><th>FN</th></tr>
         </thead>
@@ -214,21 +278,32 @@
   </div>
 
   <script>
-    const textarea    = document.getElementById('text');
-    const evalCheck   = document.getElementById('eval-mode');
-    const modelSel    = document.getElementById('model');
-    const submitBtn   = document.getElementById('submit-btn');
-    const evalAllBtn  = document.getElementById('eval-all-btn');
-    const sendLabel   = document.getElementById('sending-label');
-    const sendText    = document.getElementById('sending-text');
-    const errorBox    = document.getElementById('error-box');
-    const resultBox   = document.getElementById('result-box');
-    const evalDiv     = document.getElementById('eval-results');
-    const progressWrap = document.getElementById('progress-wrap');
-    const progressBar  = document.getElementById('progress-bar');
-    const progressLbl  = document.getElementById('progress-label');
-    const compareWrap  = document.getElementById('compare-wrap');
+    const textarea        = document.getElementById('text');
+    const evalCheck       = document.getElementById('eval-mode');
+    const modelSel        = document.getElementById('model');
+    const submitBtn       = document.getElementById('submit-btn');
+    const sendLabel       = document.getElementById('sending-label');
+    const sendText        = document.getElementById('sending-text');
+    const errorBox        = document.getElementById('error-box');
+    const resultBox       = document.getElementById('result-box');
+    const evalDiv         = document.getElementById('eval-results');
+    const progressWrap    = document.getElementById('progress-wrap');
+    const progressBar     = document.getElementById('progress-bar');
+    const progressLbl     = document.getElementById('progress-label');
+    const compareWrap     = document.getElementById('compare-wrap');
+    const nSamplesWrap    = document.getElementById('n-samples-wrap');
+    const nSamplesInput   = document.getElementById('n-samples');
+    const cancelBtn       = document.getElementById('cancel-btn');
+    const modelSelectWrap = document.getElementById('model-select-wrap');
+    const modelCompareWrap= document.getElementById('model-compare-wrap');
+    const modelsAvailable = document.getElementById('models-available');
+    const modelsSelected  = document.getElementById('models-selected');
+    const addModelBtn     = document.getElementById('add-model-btn');
+    const removeModelBtn  = document.getElementById('remove-model-btn');
 
+    // allProviders: [{id, name, models, default_model}]
+    // allModels: flat list of {provider, model} objects
+    let allProviders = [];
     let allModels = [];
 
     function fmt(v) { return v.toFixed(3); }
@@ -297,6 +372,45 @@
       evalDiv.hidden = false;
     }
 
+    // Sync submit button disabled state in eval mode
+    function syncSubmitBtn() {
+      if (evalCheck.checked) {
+        submitBtn.disabled = modelsSelected.options.length === 0;
+      } else {
+        submitBtn.disabled = false;
+      }
+    }
+
+    // Move selected options between listboxes
+    function moveOptions(fromSel, toSel) {
+      const selected = Array.from(fromSel.selectedOptions);
+      selected.forEach(opt => {
+        fromSel.removeChild(opt);
+        toSel.appendChild(opt);
+      });
+      syncSubmitBtn();
+    }
+
+    addModelBtn.addEventListener('click', () => moveOptions(modelsAvailable, modelsSelected));
+    removeModelBtn.addEventListener('click', () => moveOptions(modelsSelected, modelsAvailable));
+
+    // Double-click to move
+    modelsAvailable.addEventListener('dblclick', () => moveOptions(modelsAvailable, modelsSelected));
+    modelsSelected.addEventListener('dblclick', () => moveOptions(modelsSelected, modelsAvailable));
+
+    // Populate the available models listbox (called when switching to eval mode)
+    function populateAvailableModels() {
+      modelsAvailable.innerHTML = '';
+      modelsSelected.innerHTML = '';
+      allModels.forEach(({provider, model}) => {
+        const opt = document.createElement('option');
+        opt.value = JSON.stringify({provider, model});
+        opt.textContent = `[${provider}] ${model}`;
+        modelsAvailable.appendChild(opt);
+      });
+      syncSubmitBtn();
+    }
+
     // Eval mode checkbox
     evalCheck.addEventListener('change', async function () {
       clearResults();
@@ -304,10 +418,14 @@
         textarea.readOnly = true;
         textarea.removeAttribute('required');
         submitBtn.textContent = 'Evaluate';
-        evalAllBtn.hidden = false;
+        modelSelectWrap.hidden = true;
+        modelCompareWrap.hidden = false;
+        nSamplesWrap.hidden = false;
+        populateAvailableModels();
         textarea.value = 'Loading samples…';
         try {
-          const resp = await fetch('/api/sample?n=5');
+          const n = Math.max(1, parseInt(nSamplesInput.value, 10) || 5);
+          const resp = await fetch(`/api/sample?n=${n}`);
           const samples = await resp.json();
           textarea.value = samples.map(s => s.text).join('\n\n---\n\n');
         } catch {
@@ -317,92 +435,130 @@
         textarea.readOnly = false;
         textarea.value = '';
         submitBtn.textContent = 'Annotate';
-        evalAllBtn.hidden = true;
+        submitBtn.disabled = false;
+        modelSelectWrap.hidden = false;
+        modelCompareWrap.hidden = true;
+        nSamplesWrap.hidden = true;
       }
     });
+
+    // Reload samples when n changes (only in eval mode)
+    nSamplesInput.addEventListener('change', async function () {
+      if (!evalCheck.checked) return;
+      const n = Math.max(1, parseInt(this.value, 10) || 5);
+      textarea.value = 'Loading samples…';
+      try {
+        const resp = await fetch(`/api/sample?n=${n}`);
+        const samples = await resp.json();
+        textarea.value = samples.map(s => s.text).join('\n\n---\n\n');
+      } catch {
+        textarea.value = '(Failed to load samples)';
+      }
+    });
+
+    function selectedProviderModel() {
+      try { return JSON.parse(modelSel.value); } catch { return {}; }
+    }
 
     // Submit
     submitBtn.addEventListener('click', async function () {
       clearResults();
-      const model = modelSel.value;
       const isEval = evalCheck.checked;
+      const n = Math.max(1, parseInt(nSamplesInput.value, 10) || 5);
 
-      if (!isEval && !textarea.value.trim()) {
-        showError('Please enter some text to annotate.');
+      if (!isEval) {
+        // Single annotation
+        if (!textarea.value.trim()) {
+          showError('Please enter some text to annotate.');
+          return;
+        }
+        const {provider, model} = selectedProviderModel();
+        submitBtn.disabled = true;
+        setSpinner(true, 'Sending request…');
+        try {
+          const resp = await fetch('/api/annotate', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ text: textarea.value, provider, model }),
+          });
+          const data = await resp.json();
+          if (!resp.ok) showError(data.detail ?? `Error ${resp.status}`);
+          else renderAnnotation(data);
+        } catch (e) {
+          showError(`Network error: ${e.message}`);
+        } finally {
+          submitBtn.disabled = false;
+          setSpinner(false);
+        }
         return;
       }
 
-      submitBtn.disabled = true;
-      setSpinner(true, isEval ? 'Running evaluation… this may take a while.' : 'Sending request…');
+      // Multi-model evaluation
+      const modelsToEval = Array.from(modelsSelected.options).map(o => JSON.parse(o.value));
+      if (modelsToEval.length === 0) return;
 
-      try {
-        let resp, data;
-        if (isEval) {
-          resp = await fetch('/api/evaluate', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ model, n: 5 }),
-          });
-        } else {
-          resp = await fetch('/api/annotate', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ text: textarea.value, model }),
-          });
-        }
-
-        data = await resp.json();
-
-        if (!resp.ok) {
-          showError(data.detail ?? `Error ${resp.status}`);
-        } else if (isEval) {
-          renderEvalResults(data);
-        } else {
-          renderAnnotation(data);
-        }
-      } catch (e) {
-        showError(`Network error: ${e.message}`);
-      } finally {
-        submitBtn.disabled = false;
-        setSpinner(false);
-      }
-    });
-
-    // Evaluate all models
-    evalAllBtn.addEventListener('click', async function () {
-      clearResults();
       const seed = Math.floor(Math.random() * 1e9);
-      const models = allModels;
-      const total = models.length;
+      const total = modelsToEval.length;
       const results = [];
       const t0 = performance.now();
 
       submitBtn.disabled = true;
-      evalAllBtn.disabled = true;
+      addModelBtn.disabled = true;
+      removeModelBtn.disabled = true;
+      cancelBtn.hidden = false;
 
-      for (let i = 0; i < models.length; i++) {
-        const model = models[i];
+      const providerName = id => allProviders.find(p => p.id === id)?.name || id;
+
+      function fmtDuration(ms) {
+        const s = Math.floor(ms / 1000);
+        return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+      }
+
+      let currentController = null;
+
+      cancelBtn.onclick = () => {
+        if (currentController) currentController.abort();
+      };
+
+      for (let i = 0; i < modelsToEval.length; i++) {
+        const {provider, model} = modelsToEval[i];
         const shortName = model.split('/').pop();
-        setProgress(i, total, `(${i + 1}/${total}) Evaluating ${shortName}…`);
+        const baseMsg = `(${i + 1}/${total}) Evaluating ${providerName(provider)} / ${shortName}`;
+        const reqStart = performance.now();
+        setProgress(i, total, `${baseMsg}…`);
+
+        // Live timer — updates label every second with elapsed time
+        const timerInterval = setInterval(() => {
+          setProgress(i, total, `${baseMsg} — ${fmtDuration(performance.now() - reqStart)}`);
+        }, 1000);
+
+        currentController = new AbortController();
         try {
           const resp = await fetch('/api/evaluate', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ model, n: 5, seed }),
+            body: JSON.stringify({ provider, model, n, seed }),
+            signal: currentController.signal,
           });
           const data = await resp.json();
-          if (resp.ok) {
-            results.push(data);
-          } else {
-            results.push({ model, error: data.detail ?? `Error ${resp.status}` });
-          }
+          if (resp.ok) results.push(data);
+          else results.push({ provider, model, error: data.detail ?? `Error ${resp.status}` });
         } catch (e) {
-          results.push({ model, error: e.message });
+          if (e.name === 'AbortError') {
+            results.push({ provider, model, error: `Cancelled after ${fmtDuration(performance.now() - reqStart)}` });
+          } else {
+            results.push({ provider, model, error: e.message });
+          }
+        } finally {
+          clearInterval(timerInterval);
+          currentController = null;
         }
         setProgress(i + 1, total, i + 1 < total
           ? `(${i + 1}/${total}) done, continuing…`
           : `All ${total} models evaluated.`);
       }
+
+      cancelBtn.hidden = true;
 
       const elapsed = ((performance.now() - t0) / 1000).toFixed(1);
       progressWrap.hidden = true;
@@ -413,13 +569,14 @@
       document.getElementById('compare-elapsed').textContent = `(${elapsed}s total)`;
       const tbody = document.getElementById('compare-tbody');
       tbody.innerHTML = results.map((r, i) => {
+        const label = r.provider ? `[${r.provider}] ${r.model}` : r.model;
         if (r.error) {
-          return `<tr><td>${i + 1}</td><td>${r.model}</td><td colspan="4" style="color:#b91c1c">${r.error}</td></tr>`;
+          return `<tr><td>${i + 1}</td><td>${label}</td><td colspan="4" style="color:#b91c1c">${r.error}</td></tr>`;
         }
         const f1cls = r.micro_f1 >= 0.8 ? 'f1-high' : r.micro_f1 >= 0.5 ? 'f1-mid' : 'f1-low';
         return `<tr class="${i === 0 ? 'rank-1' : ''}">
           <td>${i + 1}</td>
-          <td>${r.model}</td>
+          <td>${label}</td>
           <td>${fmt(r.micro_precision)}</td>
           <td>${fmt(r.micro_recall)}</td>
           <td class="${f1cls}">${fmt(r.micro_f1)}</td>
@@ -429,25 +586,57 @@
 
       compareWrap.hidden = false;
       submitBtn.disabled = false;
-      evalAllBtn.disabled = false;
+      addModelBtn.disabled = false;
+      removeModelBtn.disabled = false;
+      syncSubmitBtn();
+    });
+
+    // Copy table to clipboard
+    async function copyTable(tableId, btn) {
+      const html = document.getElementById(tableId).outerHTML;
+      try {
+        await navigator.clipboard.write([
+          new ClipboardItem({ 'text/html': new Blob([html], { type: 'text/html' }) })
+        ]);
+      } catch {
+        await navigator.clipboard.writeText(html);
+      }
+      btn.textContent = 'Copied!';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+    }
+    document.getElementById('copy-compare-btn').addEventListener('click', function () {
+      copyTable('compare-table', this);
+    });
+    document.getElementById('copy-eval-btn').addEventListener('click', function () {
+      copyTable('eval-table', this);
     });
 
     // Initialise from /api/config
     (async function init() {
       try {
         const cfg = await fetch('/api/config').then(r => r.json());
-        if (!cfg.hf_token_set) {
+        if (!cfg.providers || cfg.providers.length === 0) {
           document.getElementById('no-token').hidden = false;
           return;
         }
-        allModels = cfg.models;
-        cfg.models.forEach(m => {
-          const opt = document.createElement('option');
-          opt.value = opt.textContent = m;
-          if (m === cfg.default_model) opt.selected = true;
-          modelSel.appendChild(opt);
+        allProviders = cfg.providers;
+        allModels = [];
+        cfg.providers.forEach(provider => {
+          const grp = document.createElement('optgroup');
+          grp.label = provider.name;
+          provider.models.forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = JSON.stringify({provider: provider.id, model: m});
+            opt.textContent = m;
+            if (m === provider.default_model && allModels.length === 0) opt.selected = true;
+            grp.appendChild(opt);
+            allModels.push({provider: provider.id, model: m});
+          });
+          modelSel.appendChild(grp);
         });
         document.getElementById('main-ui').hidden = false;
+        if (evalCheck.checked) evalCheck.dispatchEvent(new Event('change'));
       } catch (e) {
         document.getElementById('no-token').hidden = false;
         document.getElementById('no-token').textContent =

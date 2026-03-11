@@ -189,7 +189,8 @@ def do_evaluate(model: str, n: int):
 with gr.Blocks(title="TEI Annotator") as demo:
     gr.Markdown(
         "# TEI Annotator\n"
-        "Annotate bibliographic plain text with TEI XML tags (tei:author, tei:title etc.) "
+        "[GitHub Repo](https://github.com/cboulanger/tei-annotator)\n"
+        "This demo annotates bibliographic plain text with TEI XML tags (tei:author, tei:title etc.) "
         "using open LLMs via the HuggingFace Inference Router."
     )
     if not _HF_TOKEN:

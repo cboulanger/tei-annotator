@@ -10,17 +10,14 @@ the CLI before importing this module, so load_dotenv() would run too late to
 affect the port binding.
 
 Configuration is read from a .env file in this directory (or from environment
-variables).  Copy .env.template to .env and fill in HF_TOKEN.
+variables).  Copy .env.template to .env and fill in your provider API keys.
 """
 
 from __future__ import annotations
 
-import json
 import os
 import random
 import time
-import urllib.error
-import urllib.request
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -34,28 +31,13 @@ from pydantic import BaseModel, Field
 
 load_dotenv(Path(__file__).parent / ".env")
 
-_HF_TOKEN = os.environ.get("HF_TOKEN", "")
-_HF_MODEL_DEFAULT = os.environ.get("HF_MODEL", "meta-llama/Llama-3.3-70B-Instruct:nscale")
 _GLINER_MODEL = os.environ.get("GLINER_MODEL", "") or None
 
-# Curated list of open models available on the HuggingFace Inference Router.
-# All pinned to providers confirmed to work from AWS-hosted HF Spaces.
-# Blocked from AWS: groq, cerebras, together-ai, sambanova.
-# Safe providers used here: nscale, scaleway.
-_HF_MODELS = [
-    "meta-llama/Llama-3.3-70B-Instruct:nscale",
-    "meta-llama/Llama-3.1-70B-Instruct:scaleway",
-    "Qwen/Qwen3-32B:nscale",
-    "deepseek-ai/DeepSeek-R1-Distill-Llama-70B:nscale",
-    "Qwen/Qwen2.5-Coder-32B-Instruct:nscale",
-    "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B:nscale",
-    "meta-llama/Llama-3.1-8B-Instruct:nscale",
-    "Qwen/Qwen3-14B:nscale",
-    "openai/gpt-oss-20b:nscale",
-    "Qwen/QwQ-32B:nscale",
-]
+from connectors import get_available_connectors, get_connector  # noqa: E402
 
-_HF_BASE_URL = "https://router.huggingface.co/v1"
+# SELECTED_MODEL=<provider>/<model> — e.g. "hf/meta-llama/Llama-3.3-70B-Instruct:nscale"
+_sel = os.environ.get("SELECTED_MODEL", "")
+_SELECTED_PROVIDER, _SELECTED_MODEL_ID = (_sel.split("/", 1) if "/" in _sel else (None, None))
 
 # Path to the evaluation fixture (relative to this file's parent directory).
 _FIXTURE_PATH = Path(__file__).parent.parent / "tests" / "fixtures" / "blbl-examples.tei.xml"
@@ -63,50 +45,26 @@ _FIXTURE_PATH = Path(__file__).parent.parent / "tests" / "fixtures" / "blbl-exam
 # Static HTML file served at GET /.
 _HTML_FILE = Path(__file__).parent / "static" / "index.html"
 
-# ---------------------------------------------------------------------------
-# HTTP helper
-# ---------------------------------------------------------------------------
-
-
-def _post_json(url: str, payload: dict, headers: dict, timeout: int = 120) -> dict:
-    body = json.dumps(payload).encode()
-    req = urllib.request.Request(url, data=body, headers=headers, method="POST")
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            return json.loads(resp.read())
-    except urllib.error.HTTPError as exc:
-        detail = exc.read().decode(errors="replace")
-        raise RuntimeError(f"HTTP {exc.code}: {detail}") from exc
-
 
 # ---------------------------------------------------------------------------
-# HuggingFace call_fn factory
+# Connector / call_fn helper
 # ---------------------------------------------------------------------------
 
 
-def _make_hf_call_fn(model: str, timeout: int = 120):
-    url = f"{_HF_BASE_URL}/chat/completions"
-    headers = {"Content-Type": "application/json", "Authorization": f"Bearer {_HF_TOKEN}"}
-
-    def call_fn(prompt: str) -> str:
-        payload = {
-            "model": model,
-            "messages": [{"role": "user", "content": prompt}],
-            "temperature": 0.1,
-        }
-        result = _post_json(url, payload, headers, timeout)
-        return result["choices"][0]["message"]["content"]
-
-    call_fn.__name__ = f"hf/{model}"
-    return call_fn
-
-
-def _get_call_fn(model: str):
-    if not _HF_TOKEN:
-        raise HTTPException(status_code=503, detail="HF_TOKEN not configured")
-    if model not in _HF_MODELS:
-        raise HTTPException(status_code=400, detail=f"Unknown model: {model!r}")
-    return _make_hf_call_fn(model)
+def _resolve_call_fn(provider_id: str | None, model_id: str | None, timeout: int = 300):
+    connectors = get_available_connectors()
+    if not connectors:
+        raise HTTPException(status_code=503, detail="No providers configured. Set at least one API key.")
+    if not provider_id and not model_id:
+        provider_id = _SELECTED_PROVIDER
+        model_id = _SELECTED_MODEL_ID
+    connector = get_connector(provider_id) if provider_id else connectors[0]
+    if connector is None or not connector.is_available():
+        raise HTTPException(status_code=400, detail=f"Provider {provider_id!r} not available")
+    model = model_id or connector.default_model
+    if model not in connector.models():
+        raise HTTPException(status_code=400, detail=f"Model {model!r} not available for provider {connector.id!r}")
+    return connector.make_call_fn(model, timeout=timeout)
 
 
 # ---------------------------------------------------------------------------
@@ -159,7 +117,12 @@ def _load_fixture_bibls():
     return tree.findall(".//tei:bibl", _TEI_NS)
 
 
-def _run_evaluation(model: str, n: int = 5, seed: int | None = None) -> dict:
+def _run_evaluation(
+    provider_id: str | None,
+    model_id: str | None,
+    n: int = 5,
+    seed: int | None = None,
+) -> dict:
     """Sample n bibl elements, annotate each, compute metrics vs gold standard.
 
     Pass *seed* to reproduce the same sample across multiple calls (e.g. when
@@ -173,7 +136,7 @@ def _run_evaluation(model: str, n: int = 5, seed: int | None = None) -> dict:
     from tei_annotator.pipeline import annotate
     from tei_annotator.schemas.blbl import build_blbl_schema
 
-    call_fn = _get_call_fn(model)
+    call_fn = _resolve_call_fn(provider_id, model_id)
     endpoint = EndpointConfig(
         capability=EndpointCapability.TEXT_GENERATION,
         call_fn=call_fn,
@@ -200,9 +163,13 @@ def _run_evaluation(model: str, n: int = 5, seed: int | None = None) -> dict:
 
     elapsed = time.monotonic() - t0
     agg = aggregate(per_result)
+    # Include a display label combining provider+model for the UI
+    connector = get_connector(provider_id) if provider_id else get_available_connectors()[0]
+    resolved_model = model_id or connector.default_model
     return {
         "n_samples": len(samples),
-        "model": model,
+        "provider": connector.id,
+        "model": resolved_model,
         "sample_texts": sample_texts,
         "elapsed_seconds": round(elapsed, 1),
         "micro_precision": agg.micro_precision,
@@ -232,8 +199,6 @@ app = FastAPI(
     version="0.1.0",
 )
 
-_DEFAULT_MODEL = _HF_MODEL_DEFAULT if _HF_MODEL_DEFAULT in _HF_MODELS else _HF_MODELS[0]
-
 
 # ---------------------------------------------------------------------------
 # UI
@@ -253,11 +218,21 @@ async def index():
 @app.get("/api/config")
 async def api_config():
     """Return server configuration needed by the SPA on startup."""
-    return {
-        "models": _HF_MODELS,
-        "default_model": _DEFAULT_MODEL,
-        "hf_token_set": bool(_HF_TOKEN),
-    }
+    providers = []
+    for c in get_available_connectors():
+        models = c.models()
+        if _SELECTED_PROVIDER == c.id and _SELECTED_MODEL_ID in models:
+            default_model = _SELECTED_MODEL_ID
+        else:
+            default_model = c.default_model
+        providers.append({
+            "id": c.id,
+            "name": c.name,
+            "description": c.description,
+            "models": models,
+            "default_model": default_model,
+        })
+    return {"providers": providers}
 
 
 @app.get("/api/sample")
@@ -295,6 +270,7 @@ class AnnotateRequest(BaseModel):
     model_config = {"populate_by_name": True}
 
     text: str
+    provider: str | None = None
     model: str | None = None
     tei_schema: SchemaInput | None = Field(None, alias="schema")
 
@@ -317,15 +293,15 @@ async def annotate_api(body: AnnotateRequest):
     Annotate *text* and return the XML result.
 
     - **text**: plain text to annotate.
-    - **model**: HuggingFace model ID (default: `HF_MODEL` from env).
+    - **provider**: connector id (default: first available provider).
+    - **model**: model ID for the provider (default: provider's default model).
     - **schema**: TEI schema definition. Omit to use the built-in BLBL bibliographic schema.
     """
     from tei_annotator.inference.endpoint import EndpointCapability, EndpointConfig
     from tei_annotator.pipeline import annotate
     from tei_annotator.schemas.blbl import build_blbl_schema
 
-    model = body.model or _DEFAULT_MODEL
-    call_fn = _get_call_fn(model)
+    call_fn = _resolve_call_fn(body.provider, body.model)
 
     if body.tei_schema is not None:
         schema = _schema_from_dict(body.tei_schema.model_dump())
@@ -338,8 +314,10 @@ async def annotate_api(body: AnnotateRequest):
     )
 
     try:
+        import asyncio
         t0 = time.monotonic()
-        result = annotate(
+        result = await asyncio.to_thread(
+            annotate,
             text=body.text,
             schema=schema,
             endpoint=endpoint,
@@ -360,6 +338,7 @@ async def annotate_api(body: AnnotateRequest):
 
 
 class EvaluateRequest(BaseModel):
+    provider: str | None = None
     model: str | None = None
     n: int = 5
     seed: int | None = None
@@ -371,12 +350,13 @@ async def evaluate_api(body: EvaluateRequest):
     Sample *n* bibliographic entries from the test fixture, annotate each with
     the chosen model, and return precision/recall/F1 against the gold standard.
 
-    - **model**: HuggingFace model ID (default: `HF_MODEL` from env).
+    - **provider**: connector id (default: first available provider).
+    - **model**: model ID for the provider (default: provider's default model).
     - **n**: number of random samples (default: 5).
     """
-    model = body.model or _DEFAULT_MODEL
     try:
-        return _run_evaluation(model, n=body.n, seed=body.seed)
+        import asyncio
+        return await asyncio.to_thread(_run_evaluation, body.provider, body.model, n=body.n, seed=body.seed)
     except HTTPException:
         raise
     except Exception as exc:
@@ -387,6 +367,27 @@ async def evaluate_api(body: EvaluateRequest):
 # Entry point for direct execution
 # ---------------------------------------------------------------------------
 
+_PID_FILE = Path(__file__).parent / ".server.pid"
+
+
+def _kill_previous() -> None:
+    """Kill the process recorded in .server.pid, if it still exists."""
+    import signal
+
+    if not _PID_FILE.exists():
+        return
+    try:
+        pid = int(_PID_FILE.read_text().strip())
+        os.kill(pid, signal.SIGTERM)
+        # Give it a moment to release the port
+        import time as _time
+        _time.sleep(0.5)
+    except (ProcessLookupError, ValueError):
+        pass  # already gone
+    finally:
+        _PID_FILE.unlink(missing_ok=True)
+
+
 if __name__ == "__main__":
     import argparse
     import uvicorn
@@ -396,6 +397,11 @@ if __name__ == "__main__":
                          help="Enable auto-reload on code changes (development only).")
     _args = _parser.parse_args()
 
-    host = os.environ.get("HOST", "0.0.0.0")
-    port = int(os.environ.get("PORT", "8000"))
-    uvicorn.run("main:app", host=host, port=port, reload=_args.reload)
+    _kill_previous()
+    _PID_FILE.write_text(str(os.getpid()))
+    try:
+        host = os.environ.get("HOST", "0.0.0.0")
+        port = int(os.environ.get("PORT", "8000"))
+        uvicorn.run("main:app", host=host, port=port, reload=_args.reload)
+    finally:
+        _PID_FILE.unlink(missing_ok=True)

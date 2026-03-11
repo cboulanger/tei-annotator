@@ -13,8 +13,6 @@ license: mit
 short_description: Demo for cboulanger/tei-annotator
 ---
 
-# tei-annotator
-
 A Python library for annotating text with [TEI XML](https://tei-c.org/) tags using a two-stage LLM pipeline.
 
 The pipeline:
@@ -305,51 +303,14 @@ The skill follows the iterative workflow above: it reads the evaluation output, 
 
 ## Demo and webservice
 
-There is a (very slow) demo on Huggingface:
+There is a (very slow) demo on HuggingFace:
 
 <https://huggingface.co/spaces/cmboulanger/tei-annotator>
 
 For local testing and development, two interfaces are provided:
 
-- **`app.py`** — Gradio app for HuggingFace Spaces. Set `HF_TOKEN` as a Space secret; visitors use the app without any login step.
-- **`webservice/`** — FastAPI JSON API + browser UI for local use, using a server-side `HF_TOKEN` from `.env`.
-
-### Running the Gradio app locally
-
-```bash
-uv sync --extra gradio
-HF_TOKEN=hf_... uv run python app.py
-# opens at http://localhost:7860
-```
-
-Set `HF_TOKEN` to a token with the **"Make calls to Inference Providers"** scope ([create/edit tokens here](https://huggingface.co/settings/tokens)). You can also put it in a `.env` file at the repo root instead of passing it inline.
-
-### Running the FastAPI webservice locally
-
-```bash
-uv sync --extra webservice
-cp webservice/.env.template webservice/.env
-# edit webservice/.env — set HF_TOKEN
-uv run python webservice/main.py           # reads HOST / PORT from .env
-uv run python webservice/main.py --reload  # development mode with auto-reload
-```
-
-> **Note:** Do not start with `uvicorn main:app` directly — uvicorn binds the port from its CLI args *before* the module is imported, so `load_dotenv()` would run too late to affect the port.
-
-### FastAPI endpoints
-
-| Endpoint | Method | Description |
-| --- | --- | --- |
-| `/` | `GET` | Single-page browser UI |
-| `/api/annotate` | `POST` (JSON) | Annotate text, return XML |
-| `/api/evaluate` | `POST` (JSON) | Run evaluation against gold standard |
-| `/api/sample` | `GET` | Sample texts from the test fixture |
-| `/api/config` | `GET` | Server configuration (model list, default model) |
-| `/docs` | `GET` | Interactive OpenAPI documentation (Swagger UI) |
-
-### Deployment on HuggingFace Spaces
-
-See [docs/huggingface-deployment.md](docs/huggingface-deployment.md) for step-by-step instructions for both the Gradio app and the Docker/FastAPI options.
+- **`app.py`** — Gradio app for HuggingFace Spaces. See [docs/huggingface-deployment.md](docs/huggingface-deployment.md) for setup and deployment instructions.
+- **`webservice/`** — FastAPI JSON API + browser UI for local use. Supports multiple LLM providers (HuggingFace Inference Router, Google Gemini, KISSKI) — providers are enabled based on which API keys are set in `.env`. See [docs/webservice.md](docs/webservice.md) for full documentation.
 
 ---
 

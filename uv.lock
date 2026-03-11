@@ -1743,7 +1743,7 @@ dev = [
 requires-dist = [
     { name = "fastapi", marker = "extra == 'webservice'", specifier = ">=0.115" },
     { name = "gliner", marker = "extra == 'gliner'", specifier = ">=0.2" },
-    { name = "gradio", marker = "extra == 'gradio'", specifier = ">=5.0" },
+    { name = "gradio", marker = "extra == 'gradio'", specifier = ">=6.9" },
     { name = "jinja2", specifier = ">=3.1" },
     { name = "lxml", specifier = ">=5.0" },
     { name = "python-dotenv", specifier = ">=1.2.2" },

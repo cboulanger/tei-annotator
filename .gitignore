@@ -12,4 +12,5 @@ wheels/
 .DS_Store
 
 # Local files
-.local/
+.local
+.server.pid
