@@ -305,7 +305,11 @@ The skill follows the iterative workflow above: it reads the evaluation output, 
 
 ## Demo and webservice
 
-Two interfaces are provided:
+There is a (very slow) demo on Huggingface:
+
+<https://huggingface.co/spaces/cmboulanger/tei-annotator>
+
+For local testing and development, two interfaces are provided:
 
 - **`app.py`** — Gradio app for HuggingFace Spaces. Set `HF_TOKEN` as a Space secret; visitors use the app without any login step.
 - **`webservice/`** — FastAPI JSON API + browser UI for local use, using a server-side `HF_TOKEN` from `.env`.
