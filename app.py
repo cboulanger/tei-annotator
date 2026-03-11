@@ -41,6 +41,10 @@ _HF_MODELS = [
 _HF_BASE_URL = "https://router.huggingface.co/v1"
 _FIXTURE_PATH = Path(__file__).parent / "tests" / "fixtures" / "blbl-examples.tei.xml"
 
+# Build the schema once at startup — it's immutable and expensive-ish to rebuild per request.
+from tei_annotator.schemas.blbl import build_blbl_schema as _build_blbl_schema
+_SCHEMA = _build_blbl_schema()
+
 # ---------------------------------------------------------------------------
 # HTTP helper
 # ---------------------------------------------------------------------------
@@ -87,13 +91,12 @@ def do_annotate(text: str, model: str):
 
     from tei_annotator.inference.endpoint import EndpointCapability, EndpointConfig
     from tei_annotator.pipeline import annotate
-    from tei_annotator.schemas.blbl import build_blbl_schema
 
     endpoint = EndpointConfig(
         capability=EndpointCapability.TEXT_GENERATION,
         call_fn=_make_call_fn(model),
     )
-    schema = build_blbl_schema()
+    schema = _SCHEMA
     t0 = time.monotonic()
     try:
         result = annotate(text=text, schema=schema, endpoint=endpoint, gliner_model=None)
@@ -127,7 +130,6 @@ def do_evaluate(model: str, n: int):
     from tei_annotator.evaluation.metrics import MatchMode, aggregate, compute_metrics
     from tei_annotator.inference.endpoint import EndpointCapability, EndpointConfig
     from tei_annotator.pipeline import annotate
-    from tei_annotator.schemas.blbl import build_blbl_schema
 
     if not _FIXTURE_PATH.exists():
         return None, "Fixture file not found. Make sure tests/fixtures/ is present."
@@ -135,7 +137,7 @@ def do_evaluate(model: str, n: int):
     tree = etree.parse(str(_FIXTURE_PATH))
     bibls = tree.findall(".//{http://www.tei-c.org/ns/1.0}bibl")
     samples = random.sample(bibls, min(int(n), len(bibls)))
-    schema = build_blbl_schema()
+    schema = _SCHEMA
     endpoint = EndpointConfig(
         capability=EndpointCapability.TEXT_GENERATION,
         call_fn=_make_call_fn(model),
