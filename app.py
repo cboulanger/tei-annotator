@@ -269,7 +269,7 @@ with gr.Blocks(title="TEI Annotator") as demo:
             )
             n_slider = gr.Slider(1, 20, value=5, step=1, label="Number of samples")
             batch_size_slider = gr.Slider(
-                1, 20, value=1, step=1, label="Batch size",
+                1, 20, value=min(n_slider.value, 5), step=1, label="Batch size",
                 info="Records per LLM call. Values > 1 reduce latency but may reduce quality.",
             )
             with gr.Row():
