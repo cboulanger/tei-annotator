@@ -218,6 +218,11 @@
         <input type="number" id="n-samples" value="5" min="1" max="100"
                style="width:4.5rem; padding:0.4rem 0.5rem; border:1px solid #ccc; border-radius:4px; font-size:0.9rem;">
       </div>
+      <div id="batch-size-wrap" hidden>
+        <label for="batch-size" style="display:inline; margin-right:0.4rem;" title="Number of records sent in a single LLM call. Values &gt; 1 reduce latency but may reduce quality.">Batch size</label>
+        <input type="number" id="batch-size" value="1" min="1" max="50"
+               style="width:4.5rem; padding:0.4rem 0.5rem; border:1px solid #ccc; border-radius:4px; font-size:0.9rem;">
+      </div>
       <button id="submit-btn">Annotate</button>
       <span id="sending-label" class="sending-label" hidden>
         <span class="spinner"></span><span id="sending-text"></span>
@@ -293,6 +298,8 @@
     const compareWrap     = document.getElementById('compare-wrap');
     const nSamplesWrap    = document.getElementById('n-samples-wrap');
     const nSamplesInput   = document.getElementById('n-samples');
+    const batchSizeWrap   = document.getElementById('batch-size-wrap');
+    const batchSizeInput  = document.getElementById('batch-size');
     const cancelBtn       = document.getElementById('cancel-btn');
     const modelSelectWrap = document.getElementById('model-select-wrap');
     const modelCompareWrap= document.getElementById('model-compare-wrap');
@@ -421,6 +428,8 @@
         modelSelectWrap.hidden = true;
         modelCompareWrap.hidden = false;
         nSamplesWrap.hidden = false;
+        batchSizeWrap.hidden = false;
+        syncBatchSize(Math.max(1, parseInt(nSamplesInput.value, 10) || 5));
         populateAvailableModels();
         textarea.value = 'Loading samples…';
         try {
@@ -439,13 +448,20 @@
         modelSelectWrap.hidden = false;
         modelCompareWrap.hidden = true;
         nSamplesWrap.hidden = true;
+        batchSizeWrap.hidden = true;
       }
     });
+
+    // Suggest batch size based on sample size: min(n, 5)
+    function syncBatchSize(n) {
+      batchSizeInput.value = Math.min(n, 5);
+    }
 
     // Reload samples when n changes (only in eval mode)
     nSamplesInput.addEventListener('change', async function () {
       if (!evalCheck.checked) return;
       const n = Math.max(1, parseInt(this.value, 10) || 5);
+      syncBatchSize(n);
       textarea.value = 'Loading samples…';
       try {
         const resp = await fetch(`/api/sample?n=${n}`, {headers: authHeaders({})});
@@ -498,6 +514,7 @@
       if (modelsToEval.length === 0) return;
 
       const seed = Math.floor(Math.random() * 1e9);
+      const batchSize = Math.max(1, parseInt(batchSizeInput.value, 10) || 1);
       const total = modelsToEval.length;
       const results = [];
       const t0 = performance.now();
@@ -537,7 +554,7 @@
           const resp = await fetch('/api/evaluate', {
             method: 'POST',
             headers: authHeaders(),
-            body: JSON.stringify({ provider, model, n, seed }),
+            body: JSON.stringify({ provider, model, n, seed, batch_size: batchSize }),
             signal: currentController.signal,
           });
           const data = await resp.json();

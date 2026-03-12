@@ -10,7 +10,7 @@ FastAPI JSON API with a browser UI. Supports multiple LLM providers via a connec
 uv sync --extra webservice
 cp .env.template .env
 # edit .env — set at least one provider API key (see Providers below)
-uv run python main.py           # reads HOST / PORT from .env
+uv run task webservice          # reads HOST / PORT from .env
 uv run python main.py --reload  # development mode with auto-reload
 ```
 

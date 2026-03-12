@@ -26,10 +26,16 @@ markers = [
     "integration: marks tests as integration tests (require GLiNER model download)",
 ]
 
+[tool.taskipy.tasks]
+test = "uv run pytest"
+webservice = "uv run python webservice/main.py"
+gradio = "uv run python app.py"
+
 [dependency-groups]
 dev = [
     "pytest>=8.0",
     "pytest-cov>=5.0",
+    "taskipy>=1.13",
     "tqdm>=4.0",
 ]
 

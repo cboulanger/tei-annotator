@@ -61,7 +61,7 @@ Models are defined in `app.py` (`_HF_MODELS`), mirrored in `webservice/main.py`.
 
 ```bash
 uv sync --extra gradio
-HF_TOKEN=hf_... uv run python app.py
+HF_TOKEN=hf_... uv run task gradio
 # opens at http://localhost:7860
 ```
 
@@ -69,5 +69,5 @@ Set `HF_TOKEN` to a token with the "Make calls to Inference Providers" scope. Yo
 
 ```bash
 echo "HF_TOKEN=hf_..." > .env
-uv run python app.py
+uv run task gradio
 ```

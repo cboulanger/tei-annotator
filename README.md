@@ -318,7 +318,7 @@ For local testing and development, two interfaces are provided:
 
 ```bash
 # Unit tests (fully mocked, < 0.1 s)
-uv run pytest
+uv run task test
 
 # Integration tests — complex pipeline scenarios, no model download needed
 uv run pytest --override-ini="addopts=" -m integration \
@@ -336,4 +336,3 @@ Integration tests are excluded from the default `pytest` run via `pyproject.toml
 [tool.pytest.ini_options]
 addopts = "-m 'not integration'"
 ```
-

@@ -120,7 +120,10 @@ def do_load_samples(n: int):
     return "\n\n".join(extract_spans(el)[0] for el in samples)
 
 
-def do_evaluate(model: str, n: int):
+_BATCH_SEP = "\n---RECORD|||SEP|||BOUNDARY---\n"
+
+
+def do_evaluate(model: str, n: int, batch_size: int = 1):
     if not _HF_TOKEN:
         return None, "HF_TOKEN is not set. Add it as a Space secret."
 
@@ -142,22 +145,64 @@ def do_evaluate(model: str, n: int):
         capability=EndpointCapability.TEXT_GENERATION,
         call_fn=_make_call_fn(model),
     )
+    batch_size = max(1, int(batch_size))
+    parser = etree.XMLParser(recover=True)
 
-    per_result = []
-    t0 = time.monotonic()
-    for el in samples:
+    def _annotate_one(el):
         plain_text, gold_spans = extract_spans(el)
         try:
             ann_result = annotate(plain_text, schema, endpoint, gliner_model=None)
-        except Exception as exc:
-            return None, f"Error during annotation: {exc}"
-        try:
-            parser = etree.XMLParser(recover=True)
             pred_el = etree.fromstring(f"<bibl>{ann_result.xml}</bibl>".encode(), parser)
         except Exception:
             pred_el = etree.Element("bibl")
         _, pred_spans = extract_spans(pred_el)
-        per_result.append(compute_metrics(gold_spans, pred_spans, mode=MatchMode.TEXT))
+        return compute_metrics(gold_spans, pred_spans, mode=MatchMode.TEXT)
+
+    def _annotate_batch(batch_els):
+        plain_texts = []
+        gold_spans_list = []
+        for el in batch_els:
+            pt, gs = extract_spans(el)
+            plain_texts.append(pt)
+            gold_spans_list.append(gs)
+
+        if any(_BATCH_SEP in t for t in plain_texts):
+            return [_annotate_one(el) for el in batch_els]
+
+        combined = _BATCH_SEP.join(plain_texts)
+        try:
+            ann_result = annotate(combined, schema, endpoint, gliner_model=None)
+        except Exception as exc:
+            raise RuntimeError(f"Error during batch annotation: {exc}") from exc
+
+        pieces = ann_result.xml.split(_BATCH_SEP)
+        if len(pieces) != len(batch_els):
+            return [
+                compute_metrics(gs, [], mode=MatchMode.TEXT)
+                for gs in gold_spans_list
+            ]
+
+        results = []
+        for piece, gs in zip(pieces, gold_spans_list):
+            try:
+                pred_el = etree.fromstring(f"<bibl>{piece}</bibl>".encode(), parser)
+            except Exception:
+                pred_el = etree.Element("bibl")
+            _, pred_spans = extract_spans(pred_el)
+            results.append(compute_metrics(gs, pred_spans, mode=MatchMode.TEXT))
+        return results
+
+    per_result = []
+    t0 = time.monotonic()
+    try:
+        if batch_size <= 1:
+            for el in samples:
+                per_result.append(_annotate_one(el))
+        else:
+            for start in range(0, len(samples), batch_size):
+                per_result.extend(_annotate_batch(samples[start : start + batch_size]))
+    except Exception as exc:
+        return None, f"Error during annotation: {exc}"
 
     elapsed = round(time.monotonic() - t0, 1)
     agg = aggregate(per_result)
@@ -223,6 +268,10 @@ with gr.Blocks(title="TEI Annotator") as demo:
                 choices=_HF_MODELS, value=_HF_MODELS[0], label="Model"
             )
             n_slider = gr.Slider(1, 20, value=5, step=1, label="Number of samples")
+            batch_size_slider = gr.Slider(
+                1, 20, value=1, step=1, label="Batch size",
+                info="Records per LLM call. Values > 1 reduce latency but may reduce quality.",
+            )
             with gr.Row():
                 sample_btn = gr.Button("Load sample texts")
                 eval_btn = gr.Button("Run evaluation", variant="primary")
@@ -237,10 +286,15 @@ with gr.Blocks(title="TEI Annotator") as demo:
             )
             eval_status = gr.Textbox(label="Summary", interactive=False, max_lines=2)
 
+            n_slider.change(
+                lambda n: min(int(n), 5),
+                inputs=[n_slider],
+                outputs=[batch_size_slider],
+            )
             sample_btn.click(do_load_samples, inputs=[n_slider], outputs=[sample_out])
             eval_btn.click(
                 do_evaluate,
-                inputs=[eval_model_dd, n_slider],
+                inputs=[eval_model_dd, n_slider, batch_size_slider],
                 outputs=[eval_table, eval_status],
             )
 

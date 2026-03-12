@@ -52,6 +52,10 @@ async def _verify_token(authorization: str | None = Header(None)) -> None:
 
 from connectors import get_available_connectors, get_connector  # noqa: E402
 
+# Separator used to join/split multiple texts in a single LLM call.
+# Must not appear in any real bibliographic text.
+_BATCH_SEP = "\n---RECORD|||SEP|||BOUNDARY---\n"
+
 # SELECTED_MODEL=<provider>/<model> — e.g. "hf/meta-llama/Llama-3.3-70B-Instruct:nscale"
 _sel = os.environ.get("SELECTED_MODEL", "")
 _SELECTED_PROVIDER, _SELECTED_MODEL_ID = (_sel.split("/", 1) if "/" in _sel else (None, None))
@@ -91,6 +95,63 @@ def _resolve_call_fn(
         if premium_key != _PREMIUM_TOKEN:
             raise HTTPException(status_code=403, detail=f"Model {model!r} requires the premium key.")
     return connector.make_call_fn(model, timeout=timeout)
+
+
+# ---------------------------------------------------------------------------
+# Batch annotation helper
+# ---------------------------------------------------------------------------
+
+
+def _batch_annotate_texts(
+    texts: list,
+    schema,
+    endpoint,
+    gliner_model: str | None,
+    batch_size: int = 1,
+) -> list:
+    """Annotate *texts* in batches of *batch_size* using a single LLM call per batch.
+
+    Returns a list of xml strings (one per input text).  On a batch-split
+    mismatch the affected texts receive an empty string.
+    """
+    import warnings
+
+    from tei_annotator.pipeline import annotate
+
+    results = [""] * len(texts)
+    for start in range(0, len(texts), batch_size):
+        chunk = texts[start : start + batch_size]
+
+        # Guard: separator must not appear in any text of this batch
+        if any(_BATCH_SEP in t for t in chunk):
+            warnings.warn(
+                "A text in this batch contains the batch separator; "
+                "falling back to empty results for this batch.",
+                stacklevel=2,
+            )
+            continue
+
+        combined = _BATCH_SEP.join(chunk)
+        ann_result = annotate(
+            text=combined,
+            schema=schema,
+            endpoint=endpoint,
+            gliner_model=gliner_model,
+        )
+        pieces = ann_result.xml.split(_BATCH_SEP)
+
+        if len(pieces) != len(chunk):
+            warnings.warn(
+                f"Batch split mismatch: expected {len(chunk)} pieces, "
+                f"got {len(pieces)}. Returning empty results for this batch.",
+                stacklevel=2,
+            )
+            continue
+
+        for j, piece in enumerate(pieces):
+            results[start + j] = piece
+
+    return results
 
 
 # ---------------------------------------------------------------------------
@@ -149,11 +210,15 @@ def _run_evaluation(
     n: int = 5,
     seed: int | None = None,
     premium_key: str | None = None,
+    batch_size: int = 1,
 ) -> dict:
     """Sample n bibl elements, annotate each, compute metrics vs gold standard.
 
     Pass *seed* to reproduce the same sample across multiple calls (e.g. when
     comparing several models on identical inputs).
+
+    Pass *batch_size* > 1 to annotate multiple records per LLM call, which
+    reduces latency at a potential quality cost.
     """
     from lxml import etree
 
@@ -173,21 +238,63 @@ def _run_evaluation(
     rng = random.Random(seed)
     samples = rng.sample(bibls, min(n, len(bibls)))
 
+    _parser = etree.XMLParser(recover=True)
+
     def _evaluate_one(el):
         plain_text, gold_spans = extract_spans(el)
         ann_result = annotate(plain_text, schema, endpoint, gliner_model=_GLINER_MODEL)
         try:
-            _parser = etree.XMLParser(recover=True)
             pred_el = etree.fromstring(f"<bibl>{ann_result.xml}</bibl>".encode(), _parser)
         except Exception:
             pred_el = etree.Element("bibl")
         _, pred_spans = extract_spans(pred_el)
         return plain_text, compute_metrics(gold_spans, pred_spans, mode=MatchMode.TEXT)
 
+    def _evaluate_batch_group(batch_els):
+        """Annotate a batch of elements in a single LLM call."""
+        plain_texts = []
+        gold_spans_list = []
+        for el in batch_els:
+            pt, gs = extract_spans(el)
+            plain_texts.append(pt)
+            gold_spans_list.append(gs)
+
+        if any(_BATCH_SEP in t for t in plain_texts):
+            # Fallback to individual calls if separator appears in text
+            return [_evaluate_one(el) for el in batch_els]
+
+        combined = _BATCH_SEP.join(plain_texts)
+        ann_result = annotate(combined, schema, endpoint, gliner_model=_GLINER_MODEL)
+        pieces = ann_result.xml.split(_BATCH_SEP)
+
+        if len(pieces) != len(batch_els):
+            # Fallback: return empty predictions for all in this batch
+            return [
+                (pt, compute_metrics(gs, [], mode=MatchMode.TEXT))
+                for pt, gs in zip(plain_texts, gold_spans_list)
+            ]
+
+        batch_results = []
+        for piece, pt, gs in zip(pieces, plain_texts, gold_spans_list):
+            try:
+                pred_el = etree.fromstring(f"<bibl>{piece}</bibl>".encode(), _parser)
+            except Exception:
+                pred_el = etree.Element("bibl")
+            _, pred_spans = extract_spans(pred_el)
+            batch_results.append((pt, compute_metrics(gs, pred_spans, mode=MatchMode.TEXT)))
+        return batch_results
+
     from concurrent.futures import ThreadPoolExecutor
     t0 = time.monotonic()
-    with ThreadPoolExecutor(max_workers=min(len(samples), 8)) as pool:
-        results = list(pool.map(_evaluate_one, samples))
+
+    if batch_size <= 1:
+        with ThreadPoolExecutor(max_workers=min(len(samples), 8)) as pool:
+            results = list(pool.map(_evaluate_one, samples))
+    else:
+        batches = [samples[i : i + batch_size] for i in range(0, len(samples), batch_size)]
+        with ThreadPoolExecutor(max_workers=min(len(batches), 8)) as pool:
+            batch_results = list(pool.map(_evaluate_batch_group, batches))
+        results = [item for group in batch_results for item in group]
 
     sample_texts = [r[0] for r in results]
     per_result = [r[1] for r in results]
@@ -305,7 +412,9 @@ class SchemaInput(BaseModel):
 class AnnotateRequest(BaseModel):
     model_config = {"populate_by_name": True}
 
-    text: str
+    text: str | None = None
+    texts: list[str] | None = None
+    batch_size: int = 1
     provider: str | None = None
     model: str | None = None
     tei_schema: SchemaInput | None = Field(None, alias="schema")
@@ -323,23 +432,32 @@ class AnnotateResponse(BaseModel):
     elapsed_seconds: float
 
 
-@app.post("/api/annotate", response_model=AnnotateResponse)
+@app.post("/api/annotate")
 async def annotate_api(
     body: AnnotateRequest,
     _: None = Depends(_verify_token),
     x_premium_key: str | None = Header(None),
 ):
     """
-    Annotate *text* and return the XML result.
+    Annotate text and return the XML result.
 
-    - **text**: plain text to annotate.
+    - **text**: single plain text to annotate (returns a single AnnotateResponse).
+    - **texts**: list of plain texts to annotate (returns a list of AnnotateResponse).
+    - **batch_size**: number of texts to send in a single LLM call when using *texts*
+      (default 1 — one call per text).  Values > 1 reduce latency at a potential
+      quality cost ("lost in the middle" effect for large batches).
     - **provider**: connector id (default: first available provider).
     - **model**: model ID for the provider (default: provider's default model).
     - **schema**: TEI schema definition. Omit to use the built-in BLBL bibliographic schema.
     """
+    import asyncio
+
     from tei_annotator.inference.endpoint import EndpointCapability, EndpointConfig
     from tei_annotator.pipeline import annotate
     from tei_annotator.schemas.blbl import build_blbl_schema
+
+    if body.text is None and body.texts is None:
+        raise HTTPException(status_code=422, detail="Provide either 'text' or 'texts'.")
 
     call_fn = _resolve_call_fn(body.provider, body.model, premium_key=x_premium_key)
 
@@ -353,8 +471,29 @@ async def annotate_api(
         call_fn=call_fn,
     )
 
+    # ── Batch mode (texts list) ──────────────────────────────────────────────
+    if body.texts is not None:
+        try:
+            t0 = time.monotonic()
+            xml_list = await asyncio.to_thread(
+                _batch_annotate_texts,
+                body.texts,
+                schema,
+                endpoint,
+                _GLINER_MODEL,
+                body.batch_size,
+            )
+            elapsed = round(time.monotonic() - t0, 1)
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+        return [
+            AnnotateResponse(xml=xml, elapsed_seconds=elapsed, fuzzy_spans=[])
+            for xml in xml_list
+        ]
+
+    # ── Single-text mode (backward compatible) ───────────────────────────────
     try:
-        import asyncio
         t0 = time.monotonic()
         result = await asyncio.to_thread(
             annotate,
@@ -382,6 +521,7 @@ class EvaluateRequest(BaseModel):
     model: str | None = None
     n: int = 5
     seed: int | None = None
+    batch_size: int = 1
 
 
 @app.post("/api/evaluate")
@@ -403,6 +543,7 @@ async def evaluate_api(
         return await asyncio.to_thread(
             _run_evaluation, body.provider, body.model,
             n=body.n, seed=body.seed, premium_key=x_premium_key,
+            batch_size=body.batch_size,
         )
     except HTTPException:
         raise
