@@ -50,7 +50,7 @@ _SCHEMA = _build_blbl_schema()
 # ---------------------------------------------------------------------------
 
 
-def _post_json(url: str, payload: dict, headers: dict, timeout: int = 120) -> dict:
+def _post_json(url: str, payload: dict, headers: dict, timeout: int = 300) -> dict:
     body = json.dumps(payload).encode()
     req = urllib.request.Request(url, data=body, headers=headers, method="POST")
     try:
@@ -61,7 +61,7 @@ def _post_json(url: str, payload: dict, headers: dict, timeout: int = 120) -> di
         raise RuntimeError(f"HTTP {exc.code}: {detail}") from exc
 
 
-def _make_call_fn(model: str, timeout: int = 120):
+def _make_call_fn(model: str, timeout: int = 300):
     url = f"{_HF_BASE_URL}/chat/completions"
     headers = {"Content-Type": "application/json", "Authorization": f"Bearer {_HF_TOKEN}"}
 
