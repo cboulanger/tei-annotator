@@ -112,6 +112,43 @@ Pass `?key=<PREMIUM_TOKEN>` to receive the full model list and `"premium": true`
 
 ### `POST /api/annotate`
 
+#### Request body
+
+| Field | Type | Default | Description |
+| --- | --- | --- | --- |
+| `text` | `string` | — | Single plain text to annotate. Returns a single response object. |
+| `texts` | `string[]` | — | List of plain texts to annotate (batch mode). Returns an array of response objects. |
+| `batch_size` | `integer` | `1` | Number of texts to send in one LLM call when using `texts`. Values > 1 reduce latency at a potential quality cost. |
+| `provider` | `string` | first available | Connector id (e.g. `"gemini"`, `"openai"`). |
+| `model` | `string` | provider default | Model ID for the chosen provider. |
+| `schema` | `object` | built-in BLBL | Custom TEI schema (see below). Omit to use the built-in bibliographic schema. |
+
+Exactly one of `text` or `texts` must be provided.
+
+**Custom `schema` object:**
+
+```json
+{
+  "elements": [
+    {
+      "tag": "author",
+      "description": "Author of the work",
+      "allowed_children": [],
+      "attributes": [
+        {
+          "name": "role",
+          "description": "Author role",
+          "allowed_values": ["editor", "translator"]
+        }
+      ]
+    }
+  ],
+  "rules": ["author must precede title"]
+}
+```
+
+**Single-text example:**
+
 ```json
 {
   "text": "Doe, J. (2024). A paper. Journal of Foo, 12(3), 1–10.",
@@ -120,7 +157,49 @@ Pass `?key=<PREMIUM_TOKEN>` to receive the full model list and `"premium": true`
 }
 ```
 
-`provider` and `model` are optional; both default to the first available provider and its default model.
+**Batch example:**
+
+```json
+{
+  "texts": [
+    "Doe, J. (2024). A paper. Journal of Foo, 12(3), 1–10.",
+    "Smith, A. (2023). Another paper. Bar Review, 5(1), 1–5."
+  ],
+  "batch_size": 2,
+  "provider": "gemini"
+}
+```
+
+#### Response
+
+When `text` is used, a single object is returned. When `texts` is used, an array of objects is returned (one per input text, in the same order).
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `xml` | `string` | Annotated XML fragment for the input text. |
+| `fuzzy_spans` | `object[]` | Spans resolved via fuzzy matching (see below). |
+| `elapsed_seconds` | `float` | Wall-clock time for the annotation call. |
+
+Each `fuzzy_spans` entry:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `element` | `string` | TEI element tag name. |
+| `start` | `integer` | Start character offset in the original plain text. |
+| `end` | `integer` | End character offset in the original plain text. |
+
+**Single-text response example:**
+
+```json
+{
+  "xml": "<author>Doe, J.</author> (<date>2024</date>). <title>A paper</title>. ...",
+  "fuzzy_spans": [
+    { "element": "author", "start": 0, "end": 7 },
+    { "element": "date",   "start": 9, "end": 13 }
+  ],
+  "elapsed_seconds": 1.4
+}
+```
 
 ### `POST /api/evaluate`
 
