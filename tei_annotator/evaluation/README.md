@@ -111,17 +111,20 @@ Merges a list of `EvaluationResult` objects (one per document record) into a sin
 
 Evaluates annotation of a single lxml `_Element`. Handles:
 
+- **Gold span filtering** — gold spans are filtered to only schema-defined element tags before comparison. This prevents formatting elements in the gold file (e.g. `<lb/>` in referenceSegmenter data) from inflating false-negative counts.
 - XML parsing errors in the annotated output (caught and counted as zero predictions).
 - Literal `<` / `>` characters in the annotated text that are not valid XML tags: `_escape_nonschema_brackets()` escapes any angle bracket that is not part of a known schema element tag, so lxml can parse the result without error.
 
-### `evaluate_file(gold_xml_path, schema, endpoint, match_mode, max_items)`
+### `evaluate_file(gold_xml_path, schema, endpoint, root_element, child_element, match_mode, max_items)`
 
 Evaluates an entire TEI XML file:
 
 1. Parses the XML file with lxml.
-2. Finds all first-level child elements of the root.
-3. Calls `evaluate_element()` on each, up to `max_items`.
-4. Returns `(list[EvaluationResult], EvaluationResult)` — individual results per record and the corpus-level aggregate.
+2. Finds `<root_element>` containers (default `"listBibl"`) and collects all `<child_element>` records inside them (default `"bibl"`). Both names are tried with and without the TEI namespace.
+3. Calls `evaluate_element()` on each record, up to `max_items`.
+4. Returns `(list[EvaluationResult], EvaluationResult)` — per-record results and the corpus-level aggregate.
+
+The `root_element` / `child_element` pair matches the schema's evaluation granularity — e.g. for `bibl-reference-segmenter` use `root_element="text"`, `child_element="listBibl"`. These values are stored in the schema registry so `scripts/evaluate_llm.py` selects them automatically.
 
 ---
 

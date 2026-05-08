@@ -15,3 +15,6 @@ wheels/
 .local
 .server.pid
 .duckversions
+
+# Data
+data/

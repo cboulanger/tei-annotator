@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 """
-Evaluate tei-annotator annotation quality against the blbl-examples gold standard.
+Evaluate tei-annotator annotation quality against a gold-standard TEI file.
 
 For each configured provider the script:
-  1. Loads tests/fixtures/blbl-examples.tei.xml.
-  2. Strips all tags from each <bibl> element → plain text.
+  1. Loads the gold TEI file (auto-detected from schema name, or --gold-file).
+  2. Strips all tags from each record element → plain text.
   3. Runs the full annotate() pipeline.
   4. Compares the annotated output against the original markup.
   5. Prints precision, recall, and F1 — overall and per element type.
@@ -14,8 +14,21 @@ Providers:
   • KISSKI llama-3.3-70b-instruct (KISSKI_API_KEY)
 
 Usage:
-    uv run scripts/evaluate_llm.py [--max-items N] [--match-mode text|exact|overlap] [--gliner-model MODEL]
-    python scripts/evaluate_llm.py --max-items 10 --gliner-model numind/NuNER_Zero --verbose
+    uv run scripts/evaluate_llm.py [--schema SCHEMA] [--gold-file PATH]
+        [--max-items N] [--match-mode text|exact|overlap] [--gliner-model MODEL]
+
+    # blbl schema (default) against its auto-detected fixture file:
+    uv run scripts/evaluate_llm.py --schema blbl
+
+    # referenceSegmenter schema against its auto-detected fixture file:
+    uv run scripts/evaluate_llm.py --schema bibl-reference-segmenter
+
+    # any schema with an explicit gold file:
+    uv run scripts/evaluate_llm.py --schema blbl --gold-file path/to/file.xml
+
+Gold-file auto-detection rule:
+    tests/fixtures/<schema-name>-examples.tei.xml
+    e.g. schema "bibl" → tests/fixtures/bibl-examples.tei.xml
 
 API keys are read from .env in the project root.
 """
@@ -23,101 +36,33 @@ API keys are read from .env in the project root.
 from __future__ import annotations
 
 import argparse
-import json
-import os
 import re
 import sys
-import urllib.error
-import urllib.request
 from pathlib import Path
 
 from dotenv import load_dotenv
 
+from tei_annotator.providers import _ALL_CONNECTORS, get_available_connectors, get_connector
+from tei_annotator.schemas.registry import build_schema, get_schema_config, get_schema_names
+
 # ---------------------------------------------------------------------------
-# Paths
+# Paths & schema registry
 # ---------------------------------------------------------------------------
 
 _REPO = Path(__file__).parent.parent
-GOLD_FILE = _REPO / "tests" / "fixtures" / "blbl-examples.tei.xml"
+_FIXTURES = _REPO / "tests" / "fixtures"
 
-# Separator used to join multiple bibl plain-texts into a single annotate() call.
+# Separator used to join multiple records into a single annotate() call.
 # Triple-pipe never appears in bibliographic text; inject_xml() never modifies
 # text characters, so this string is guaranteed to survive the annotation pass.
 _BATCH_SEP = "\n---RECORD|||SEP|||BOUNDARY---\n"
 
 load_dotenv(_REPO / ".env")
 
-# ---------------------------------------------------------------------------
-# HTTP helper (stdlib urllib)
-# ---------------------------------------------------------------------------
 
-
-def _post_json(url: str, payload: dict, headers: dict, timeout: int = 120) -> dict:
-    body = json.dumps(payload).encode()
-    req = urllib.request.Request(url, data=body, headers=headers, method="POST")
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            return json.loads(resp.read())
-    except urllib.error.HTTPError as exc:
-        detail = exc.read().decode(errors="replace")
-        raise RuntimeError(f"HTTP {exc.code} from {url}: {detail}") from exc
-
-
-# ---------------------------------------------------------------------------
-# call_fn factories  (identical to smoke_test_llm.py)
-# ---------------------------------------------------------------------------
-
-
-def make_gemini_call_fn(api_key: str, model: str = "gemini-2.0-flash", timeout: int = 120):
-    """Return a call_fn that sends a prompt to Gemini and returns the text reply."""
-    url = (
-        f"https://generativelanguage.googleapis.com/v1beta/models"
-        f"/{model}:generateContent?key={api_key}"
-    )
-
-    def call_fn(prompt: str) -> str:
-        payload = {
-            "contents": [{"parts": [{"text": prompt}]}],
-            "generationConfig": {"temperature": 0.1},
-        }
-        result = _post_json(url, payload, {"Content-Type": "application/json"}, timeout)
-        return result["candidates"][0]["content"]["parts"][0]["text"]
-
-    call_fn.__name__ = f"gemini/{model}"
-    return call_fn
-
-
-def make_kisski_call_fn(
-    api_key: str,
-    base_url: str = "https://chat-ai.academiccloud.de/v1",
-    model: str = "llama-3.3-70b-instruct",
-    timeout: int = 120,
-):
-    """Return a call_fn for a KISSKI-hosted OpenAI-compatible model."""
-    url = f"{base_url}/chat/completions"
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {api_key}",
-    }
-
-    def call_fn(prompt: str) -> str:
-        payload = {
-            "model": model,
-            "messages": [{"role": "user", "content": prompt}],
-            "temperature": 0.1,
-        }
-        result = _post_json(url, payload, headers, timeout)
-        return result["choices"][0]["message"]["content"]
-
-    call_fn.__name__ = f"kisski/{model}"
-    return call_fn
-
-
-# ---------------------------------------------------------------------------
-# Schema
-# ---------------------------------------------------------------------------
-
-from tei_annotator.schemas.blbl import build_blbl_schema as _build_schema  # noqa: E402
+def _default_gold_file(schema_name: str) -> Path:
+    """Deterministic gold-file path: tests/fixtures/<schema-name>-examples.tei.xml."""
+    return _FIXTURES / f"{schema_name}-examples.tei.xml"
 
 
 # ---------------------------------------------------------------------------
@@ -152,13 +97,15 @@ def _evaluate_batch(
     n = len(batch_bibls)
     results = [None] * n
 
-    # Step 1 — extract gold spans and plain text for every record
+    # Step 1 — extract gold spans and plain text for every record.
+    # Filter to schema-defined elements only (mirrors evaluate_element behaviour).
+    schema_tags = frozenset(e.tag for e in schema.elements)
     plain_texts = []
     gold_spans_list = []
     for bibl in batch_bibls:
         pt, gs = extract_spans(bibl)
         plain_texts.append(pt)
-        gold_spans_list.append(gs)
+        gold_spans_list.append([s for s in gs if s.element in schema_tags])
 
     # Step 2 — separate empty records (no text to annotate)
     non_empty_indices = [i for i, t in enumerate(plain_texts) if t.strip()]
@@ -240,6 +187,9 @@ def _evaluate_batch(
 
 
 def _load_records(
+    gold_file: Path,
+    root_element: str,
+    child_element: str,
     grep: str | None = None,
     inverse_grep: str | None = None,
     shuffle: bool = False,
@@ -249,11 +199,17 @@ def _load_records(
     from lxml import etree
 
     _TEI_NS = "http://www.tei-c.org/ns/1.0"
-    tree = etree.parse(str(GOLD_FILE))
-    containers = tree.findall(f".//{{{_TEI_NS}}}listBibl") or tree.findall(".//listBibl")
+    tree = etree.parse(str(gold_file))
+    containers = (
+        tree.findall(f".//{{{_TEI_NS}}}{root_element}")
+        or tree.findall(f".//{root_element}")
+    )
     records: list[etree._Element] = []
     for c in containers:
-        children = c.findall(f"{{{_TEI_NS}}}bibl") or c.findall("bibl")
+        children = (
+            c.findall(f"{{{_TEI_NS}}}{child_element}")
+            or c.findall(child_element)
+        )
         records.extend(children)
     if grep:
         _grep_re = re.compile(grep)
@@ -277,6 +233,8 @@ def run_evaluation(
     provider_name: str,
     call_fn,
     match_mode_str: str,
+    schema,
+    gold_file: Path,
     records: list,
     gliner_model: str | None = None,
     verbose: bool = False,
@@ -317,7 +275,6 @@ def run_evaluation(
         capability=EndpointCapability.TEXT_GENERATION,
         call_fn=call_fn,
     )
-    schema = _build_schema()
 
     n_total = len(records)
 
@@ -339,7 +296,7 @@ def run_evaluation(
         sep = "─" * 64
         print(f"\n{sep}")
         print(f"  Provider  : {provider_name}")
-        print(f"  Gold file : {GOLD_FILE.relative_to(_REPO)}")
+        print(f"  Gold file : {gold_file.relative_to(_REPO)}")
         print(f"  Records   : {n_total}   match-mode: {match_mode_str}")
         print(f"  Batch size: {batch_size}")
         print(f"  GLiNER    : {gliner_model or 'disabled'}")
@@ -472,15 +429,33 @@ def run_evaluation(
 
 def _parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(
-        description="Evaluate tei-annotator against blbl-examples.tei.xml.",
+        description="Evaluate tei-annotator against a gold-standard TEI file.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    p.add_argument(
+        "--schema",
+        choices=sorted(get_schema_names()),
+        default="bibl",
+        help=(
+            "Annotation schema to evaluate.  The gold file is auto-detected as "
+            "tests/fixtures/<schema>-examples.tei.xml unless --gold-file is given."
+        ),
+    )
+    p.add_argument(
+        "--gold-file",
+        default=None,
+        metavar="PATH",
+        help=(
+            "Path to the gold-standard TEI XML file.  Overrides the auto-detected "
+            "path derived from --schema."
+        ),
     )
     p.add_argument(
         "--max-items",
         type=int,
         default=None,
         metavar="N",
-        help="Evaluate only the first N <bibl> records (useful for quick runs).",
+        help="Evaluate only the first N records (useful for quick runs).",
     )
     p.add_argument(
         "--match-mode",
@@ -513,8 +488,14 @@ def _parse_args() -> argparse.Namespace:
         ),
     )
     p.add_argument(
+        "--model",
+        default=None,
+        metavar="MODEL_ID",
+        help="Model ID to use (default: each connector's default_model).",
+    )
+    p.add_argument(
         "--provider",
-        choices=["gemini", "kisski", "all"],
+        choices=[c.id for c in _ALL_CONNECTORS] + ["all"],
         default="all",
         help="Which provider(s) to evaluate.",
     )
@@ -565,37 +546,49 @@ def _parse_args() -> argparse.Namespace:
 def main() -> int:
     args = _parse_args()
 
-    gemini_key = os.environ.get("GEMINI_API_KEY", "")
-    kisski_key = os.environ.get("KISSKI_API_KEY", "")
-
     providers: list[tuple[str, object]] = []
 
-    if args.provider in ("gemini", "all"):
-        if not gemini_key:
-            print("ERROR: GEMINI_API_KEY not set (check .env)", file=sys.stderr)
-            if args.provider == "gemini":
-                return 1
-        else:
-            providers.append(("Gemini 2.0 Flash", make_gemini_call_fn(gemini_key, timeout=args.timeout)))
+    if args.provider == "all":
+        connectors = get_available_connectors()
+        if not connectors:
+            print("ERROR: No providers configured — check your .env file.", file=sys.stderr)
+            return 1
+    else:
+        connector = get_connector(args.provider)
+        if connector is None:
+            print(f"ERROR: Unknown provider {args.provider!r}", file=sys.stderr)
+            return 1
+        if not connector.is_available():
+            print(f"ERROR: Provider {args.provider!r} not available — check your .env file.", file=sys.stderr)
+            return 1
+        connectors = [connector]
 
-    if args.provider in ("kisski", "all"):
-        if not kisski_key:
-            print("ERROR: KISSKI_API_KEY not set (check .env)", file=sys.stderr)
-            if args.provider == "kisski":
-                return 1
-        else:
-            providers.append(
-                ("KISSKI / llama-3.3-70b-instruct", make_kisski_call_fn(kisski_key, timeout=args.timeout))
-            )
+    for connector in connectors:
+        model = args.model or connector.default_model
+        providers.append((
+            f"{connector.name} / {model}",
+            connector.make_call_fn(model, timeout=args.timeout),
+        ))
 
-    if not providers:
-        print("ERROR: No providers configured — check your .env file.", file=sys.stderr)
+    # Resolve schema and gold file
+    schema_cfg = get_schema_config(args.schema)
+    schema = build_schema(args.schema)
+    gold_file = Path(args.gold_file) if args.gold_file else _default_gold_file(args.schema)
+    if not gold_file.exists():
+        print(
+            f"ERROR: Gold file not found: {gold_file}\n"
+            f"       Create it or pass --gold-file PATH.",
+            file=sys.stderr,
+        )
         return 1
 
     if args.output_file:
         Path(args.output_file).write_text("", encoding="utf-8")
 
     records = _load_records(
+        gold_file=gold_file,
+        root_element=schema_cfg["root_element"],
+        child_element=schema_cfg["child_element"],
         grep=args.grep,
         inverse_grep=args.inverse_grep,
         shuffle=args.shuffle,
@@ -608,6 +601,8 @@ def main() -> int:
             provider_name=name,
             call_fn=fn,
             match_mode_str=args.match_mode,
+            schema=schema,
+            gold_file=gold_file,
             records=records,
             gliner_model=args.gliner_model,
             verbose=args.verbose,

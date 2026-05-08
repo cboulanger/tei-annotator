@@ -1,0 +1,115 @@
+<?xml version="1.0" ?>
+<TEI xml:space="preserve" xmlns="http://www.tei-c.org/ns/1.0">
+    <teiHeader>
+        <!--
+            Example gold file for the bibl-referenceSegmenter schema.
+            Task: given the plain text of a reference list, segment it into
+            individual <bibl> entries and tag each leading label as <label>.
+
+            Patterns covered:
+              1. Numbered footnote list with plain-integer labels
+              2. Labels with trailing period (17., 18.)
+              3. Labels in square brackets [1], [2]
+              4. Labels in parentheses (1), (2)
+              5. Special-character label (*)
+              6. Alphabetical bibliography — no labels
+              7. Multi-citation footnote: one label, multiple <bibl> segments
+                 separated by semicolons — "1. See Doe p.45; Foo p.123; Bar p.78."
+              8. Section heading text inside listBibl that is NOT a bibl
+              9. Short cross-references (Id., Ibid., supra note N)
+             10. Multi-line citations (line breaks are NOT split points)
+             11. References in languages other than English
+        -->
+        <fileDesc xml:id="_bibl-reference-segmenter-examples"/>
+    </teiHeader>
+    <text>
+        <!-- ============================================================
+             Group 1: plain-integer labels; short cross-references
+             ============================================================ -->
+        <listBibl>
+<bibl><label>2</label> Law-Related Education Act of 1978, Pub. L. No. 95-561, 92 Stat. 2216 (1978) repealed by 20 U.S.C. §<lb/> 3863(a)(1) (1982). https://perma.cc/G75R-AFKD<lb/> </bibl>
+<bibl><label>4</label> Feinstein, S., &amp; Wood, R. (1995). History of law-related education at 10. (ED401163). ERIC.<lb/> https://perma.cc/KCL2-8VFM<lb/> </bibl>
+<bibl><label>5</label> Id.<lb/> </bibl>
+<bibl><label>6</label> American Bar Association Division for Public Education. (n.d.). Isidore Starr Award for Excellence in Law-<lb/>Related Education. https://perma.cc/4SZ2-47A9<lb/> </bibl>
+<bibl><label>7</label> Feinstein &amp; Wood, supra note 3 at 12.<lb/> </bibl>
+        </listBibl>
+
+        <!-- ============================================================
+             Group 2: multi-citation footnotes — one label, multiple bibl
+             segments separated by semicolons or other breaks.
+             Each cited work gets its own <bibl>; only the first has <label>.
+             ============================================================ -->
+        <listBibl>
+<bibl><label>1</label> Simon Robins, Families of the Missing: A Test for Contemporary Approaches to Transitional Justice (Routledge 2013); </bibl><bibl>Pauline Boss, Ambiguous Loss: Learning to Live with Unresolved Grief (Harvard University Press 2000);<lb/> </bibl><bibl>Iosif Kovras, Grassroots Activism and the Evolution of Transitional Justice: Families of the Disappeared<lb/> (Cambridge University Press 2017).<lb/> </bibl>
+<bibl><label>3</label> B Morgan and K Yeung, An Introduction to Law and Regulation (CUP 2007), 80-85; </bibl><bibl>R Baldwin and M Cave, Understanding<lb/> Regulation (2nd edn OUP 2012), 106-107; </bibl><bibl>R Baldwin, 'Regulation: After Command and Control', in K Hawkins (ed.), The<lb/> Human Face of Law (OUP 1997); </bibl><bibl>T Daintith, 'The Techniques of Government' in J Jowell and D Oliver (eds.), The Changing<lb/> Constitution (Oxford: Clarendon Press), 209-236; </bibl><bibl>see also C Coglianese and E<lb/> Mendelson, 'Meta-Regulation and Self-Regulation', in R Baldwin, M Cave and M Lodge,<lb/> The Oxford Handbook of Regulation (OUP 2010), 146-151.<lb/> </bibl>
+<bibl><label>5</label> From a structural point of view, the dualism of core and periphery closely resembles Louis Althusser's<lb/> distinction between repressive and ideological state apparatuses;</bibl> <bibl>see M. Bunn, 'Reimagining Repression: New Censorship Theory and<lb/> After', History and Theory, 54, 1 (2015), pp. 25-44, here p. 35.<lb/> </bibl>
+        </listBibl>
+
+        <!-- ============================================================
+             Group 3: labels with trailing period (17., 18.)
+             ============================================================ -->
+        <listBibl>
+<bibl><label>17.</label> Creed PA, Hicks RE, Machin MA. Behavioural plasticity and mental health outcomes for long-term<lb/> unemployed attending occupational training programmes. J Occup Org Psychol. 1998;71:171-91.<lb/> </bibl>
+<bibl><label>18.</label> Spickett-Jones JG &amp; Eng T-Y (2006). "SMEs and the Strategic Context for Communication".<lb/> Journal of Marketing Communications, Vol. 12(3), 225-243.<lb/> </bibl>
+<bibl><label>19.</label> Ibid, 243.<lb/> </bibl>
+        </listBibl>
+
+        <!-- ============================================================
+             Group 4: labels in square brackets [N]
+             ============================================================ -->
+        <listBibl>
+<bibl><label>[1]</label> B Morgan and K Yeung, An Introduction to Law and Regulation (CUP 2007), 80-85.<lb/> </bibl>
+<bibl><label>[2]</label> R Baldwin, 'Regulation: After Command and Control', in K Hawkins (ed.),<lb/> The Human Face of Law (OUP 1997).<lb/> </bibl>
+<bibl><label>[3]</label> See also C Coglianese and E Mendelson, 'Meta-Regulation and Self-Regulation',<lb/> in R Baldwin, M Cave and M Lodge, The Oxford Handbook of Regulation (OUP 2010), 146-151.<lb/> </bibl>
+        </listBibl>
+
+        <!-- ============================================================
+             Group 5: labels in parentheses (N)
+             ============================================================ -->
+        <listBibl>
+<bibl><label>(1)</label> Lu Fanzhi, Zhongguo fazhan yu wenhua jiegou (Hong Kong: Jixian she, 1998), 26.<lb/> </bibl>
+<bibl><label>(2)</label> Anthony D. Smith, National Identity (Reno: University of Nevada Press, 1991), 11.<lb/> </bibl>
+<bibl><label>(3)</label> Samuel P. Huntington, The Clash of Civilizations and the Remaking of World Order<lb/> (New York: Simon &amp; Schuster, 1996), 45.<lb/> </bibl>
+        </listBibl>
+
+        <!-- ============================================================
+             Group 6: special-character label (*)
+             ============================================================ -->
+        <listBibl>
+<bibl><label>*</label> R. Diana, Migrations of Concepts. From Philosophical Text to Scene, Brepols, Turnhout, 2023.<lb/> </bibl>
+<bibl><label>1</label> Ivi, p. 9.<lb/> </bibl>
+<bibl><label>2</label> Cfr. ibid.<lb/> </bibl>
+        </listBibl>
+
+        <!-- ============================================================
+             Group 7: alphabetical bibliography — no labels
+             ============================================================ -->
+        <listBibl>
+<bibl>BIANCHI, A. A.; JONATHAN, E.; MEURER, O. A. Teorias do conflito.<lb/> In: ALMEIDA, T.; PELAJO, S.; JONATHAN, E. Mediação de conflitos. Salvador: Juspodivm, 2016. p. 71-83.<lb/> </bibl>
+<bibl>Bakhtin, M. Rabelais and his World. Translated by Helen Iswolski. Indiana University Press, 1984.<lb/> </bibl>
+<bibl>Doyle JJ. 1998. Phylogenetic perspectives on nodulation: evolving views of plants and symbiotic bacteria.<lb/> Trends in Plant Science 3: 473-478.<lb/> </bibl>
+<bibl>United States Census Bureau. 2000. 2000 Census of Population and Housing.<lb/> </bibl>
+        </listBibl>
+
+        <!-- ============================================================
+             Group 8: section heading "FOOTNOTES" inside listBibl is NOT a
+             bibl — only the numbered entries that follow are bibl elements.
+             ============================================================ -->
+        <listBibl>
+FOOTNOTES<lb/>
+<bibl><label>1</label> J. L. Nancy, The Birth to Presence (US: Stanford University Press, 1993), 320.<lb/> </bibl>
+<bibl><label>2</label> Ibid, 321.<lb/> </bibl>
+<bibl><label>3</label> Ibid, 320.<lb/> </bibl>
+        </listBibl>
+
+        <!-- ============================================================
+             Group 9: multilingual references (German, French, Italian, Spanish)
+             ============================================================ -->
+        <listBibl>
+<bibl><label>1</label> M. Foucault, Der Wille zum Wissen: vol. 1, Sexualität und Wahrheit (8th edn, Frankfurt/Main, 1995), pp. 27, 40.<lb/> </bibl>
+<bibl><label>2</label> H. Schröder, 'Zur Kulturspezifik von Tabus', in C. Benthien and O. Gutjahr (eds), TABU: Interkulturalität<lb/> und Gender (Munich, 2008), pp. 51-70, here p. 58.<lb/> </bibl>
+<bibl><label>3</label> Commission Inter-IREM Collège &amp; Commission Inter-IREM Statistiques (2012). Probabilités au collège.<lb/> Dans Brochure APMEP n°198.<lb/> </bibl>
+<bibl><label>4</label> Decreto No 8-2016 mediante el cual se decreta la Ley de Búsqueda Inmediata de Mujeres Desaparecidas<lb/> (Guatemala).<lb/> </bibl>
+        </listBibl>
+    </text>
+</TEI>

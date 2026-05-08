@@ -1,14 +1,14 @@
 """
-BLBL bibliographic schema for TEI annotation.
+Bibl bibliographic schema for TEI annotation.
 
-This schema covers the elements that appear in blbl-examples.tei.xml and is
+This schema covers the elements that appear in bibl-examples.tei.xml and is
 shared between the evaluation script and the webservice.
 """
 
 from __future__ import annotations
 
 
-def build_blbl_schema():
+def build_bibl_schema():
     from tei_annotator.models.schema import TEIAttribute, TEIElement, TEISchema
 
     def attr(name: str, desc: str, allowed: list[str] | None = None) -> TEIAttribute:

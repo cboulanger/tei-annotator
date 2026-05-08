@@ -40,18 +40,18 @@ At least one key must be set. The browser UI shows all available providers group
 
 ### Standard vs premium models
 
-Each connector declares some models as *premium* by prefixing the model name with `*` in its `_MODELS` list (see `connectors.py`). Standard models are shown to all users; premium models are hidden unless the visitor holds the `PREMIUM_TOKEN` (see [Security](#security) below). The `*` is stripped before the model ID is passed to any API.
+Each connector declares some models as *premium* by prefixing the model name with `*` in its `_MODELS` list (see `tei_annotator/providers/`). Standard models are shown to all users; premium models are hidden unless the visitor holds the `PREMIUM_TOKEN` (see [Security](#security) below). The `*` is stripped before the model ID is passed to any API.
 
 ### Adding a new provider
 
-Subclass `Connector` in `connectors.py` and append an instance to `_ALL_CONNECTORS`. Required interface:
+Connectors live in `tei_annotator/providers/` (one file per provider). To add one:
 
-- `id` / `name` / `description` — machine id, UI label, one-sentence description
-- `is_available()` — return `True` iff the required env var is set
-- `_MODELS` — list of model IDs; prefix with `*` to mark as premium
-- `make_call_fn(model_id, timeout)` — return a `(prompt: str) -> str` callable
+1. Create `tei_annotator/providers/myprovider.py` — subclass `Connector` from `.base`.
+2. Append an instance to `_ALL_CONNECTORS` in `tei_annotator/providers/__init__.py`.
 
-Override `models()` and `standard_models()` only if the model list is dynamic (see `KISSKIConnector`).
+Required interface: `id`, `name`, `description`, `is_available()`, `_MODELS`, `make_call_fn(model_id, timeout)`. Prefix a model name with `*` in `_MODELS` to mark it as premium. Override `models()` / `standard_models()` only for dynamic model lists (see `KISSKIConnector`).
+
+See [tei_annotator/providers/README.md](../tei_annotator/providers/README.md) for a full walkthrough.
 
 ---
 
@@ -121,7 +121,7 @@ Pass `?key=<PREMIUM_TOKEN>` to receive the full model list and `"premium": true`
 | `batch_size` | `integer` | `1` | Number of texts to send in one LLM call when using `texts`. Values > 1 reduce latency at a potential quality cost. |
 | `provider` | `string` | first available | Connector id (e.g. `"gemini"`, `"openai"`). |
 | `model` | `string` | provider default | Model ID for the chosen provider. |
-| `schema` | `object` | built-in BLBL | Custom TEI schema (see below). Omit to use the built-in bibliographic schema. |
+| `schema` | `object` | built-in bibl | Custom TEI schema (see below). Omit to use the built-in bibliographic schema. |
 
 Exactly one of `text` or `texts` must be provided.
 

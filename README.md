@@ -13,75 +13,34 @@ license: mit
 short_description: Demo for cboulanger/tei-annotator
 ---
 
-A Python library for annotating text with [TEI XML](https://tei-c.org/) tags using a two-stage LLM pipeline.
-
-The pipeline:
+A Python library for annotating plain text with [TEI XML](https://tei-c.org/) tags using a two-stage LLM pipeline.
 
 1. **(Optional) GLiNER pre-detection** — fast CPU-based span labelling generates candidates for the LLM to verify and extend.
-2. **LLM annotation** — a prompted language model identifies entities, returns structured spans (element + verbatim text + surrounding context + attributes).
+2. **LLM annotation** — a prompted language model identifies entities and returns structured spans (element, verbatim text, surrounding context, attributes).
 3. **Deterministic post-processing** — spans are resolved to character offsets, validated against the schema, and injected as XML tags. The source text is **never modified** by any model call.
-
-Works with any inference endpoint through an injected `call_fn: (str) -> str` — Anthropic, OpenAI, Gemini, a local Ollama instance, or a constrained-decoding API.
 
 ---
 
-## Pipeline diagram
+## Pipeline stages
 
 ```text
-  Input text (may contain XML markup)
-                 │
-                 ▼
-  ┌─────────────────────────────────┐
-  │  Strip existing XML tags        │  pipeline.py
-  └──────────────┬──────────────────┘
-                 │
-                 ▼  (optional)
-  ┌─────────────────────────────────┐
-  │  GLiNER pre-detection           │  detection/
-  └──────────────┬──────────────────┘
-                 │
-                 ▼
-  ┌─────────────────────────────────┐
-  │  Chunk text                     │  chunking/
-  └──────────────┬──────────────────┘
-                 │
-          ╔══════╧══════╗
-          ║  per chunk  ║
-          ╚══════╤══════╝
-                 │
-                 ▼
-  ┌─────────────────────────────────┐
-  │  Build LLM prompt               │  prompting/
-  └──────────────┬──────────────────┘
-                 │
-                 ▼
-  ┌─────────────────────────────────┐
-  │  LLM inference                  │  inference/
-  └──────────────┬──────────────────┘
-                 │
-                 ▼
-  ┌─────────────────────────────────┐
-  │  Parse JSON response            │  postprocessing/
-  └──────────────┬──────────────────┘
-                 │
-        ╔════════╧═════════╗
-        ║ merge all chunks ║
-        ╚════════╤═════════╝
-                 │
-                 ▼
-  ┌─────────────────────────────────┐
-  │  Resolve spans → char offsets   │  postprocessing/
-  ├─────────────────────────────────┤
-  │  Validate against schema        │  postprocessing/
-  ├─────────────────────────────────┤
-  │  Inject XML tags                │  postprocessing/
-  └──────────────┬──────────────────┘
-                 │
-                 ▼
+  Input text
+       │
+       ▼  strip existing XML tags
+       ▼  (optional) GLiNER pre-detection  ──→  tei_annotator/detection/
+       ▼  chunk text                        ──→  tei_annotator/chunking/
+       ▼  build LLM prompt                  ──→  tei_annotator/prompting/
+       ▼  LLM inference                     ──→  tei_annotator/inference/
+       ▼  parse JSON response               ──→  tei_annotator/postprocessing/
+       ▼  resolve spans → char offsets
+       ▼  validate against schema
+       ▼  inject XML tags
+       │
+       ▼
   Annotated XML output
 ```
 
-Detailed documentation for each stage:
+Stage documentation:
 [Data models](tei_annotator/models/README.md) ·
 [GLiNER detection](tei_annotator/detection/README.md) ·
 [Chunking](tei_annotator/chunking/README.md) ·
@@ -103,29 +62,22 @@ Requires Python ≥ 3.12 and [uv](https://docs.astral.sh/uv/).
 ```bash
 git clone <repo>
 cd tei-annotator
-uv sync                        # installs runtime deps: jinja2, lxml, rapidfuzz
-uv sync --extra gliner         # also installs gliner for the optional pre-detection pass
+uv sync                    # runtime deps: jinja2, lxml, rapidfuzz
+uv sync --extra gliner     # also installs gliner for optional pre-detection
 ```
 
-API keys for real LLM endpoints go in `.env` (see `.env` for the expected variable names).
+API keys for LLM endpoints go in `.env` (copy from `.env.template`).
 
 ---
 
-## Quick example
-
-Element descriptions are the primary signal the LLM uses to decide what to annotate and how. Cross-element constraints that apply to multiple span types (e.g. "always emit a `surname` span inside an enclosing `author` span") can be placed in `TEISchema.rules` instead of duplicating them in every element description — the prompt builder renders them as a numbered "General Rules" section before the per-element descriptions. See [docs/tei-element-descriptions.md](docs/tei-element-descriptions.md) for full guidelines.
+## Quick start
 
 ```python
-from tei_annotator import (
-    annotate,
-    TEISchema, TEIElement, TEIAttribute,
-    EndpointConfig, EndpointCapability,
-)
+from tei_annotator import annotate, TEISchema, TEIElement, TEIAttribute
+from tei_annotator import EndpointConfig, EndpointCapability
 
-# 1. Describe the elements you want to annotate
 schema = TEISchema(
     rules=[
-        # Cross-element constraints stated once, rendered before element descriptions
         "Emit a 'surname' span within every enclosing 'persName' span.",
     ],
     elements=[
@@ -134,205 +86,103 @@ schema = TEISchema(
             description="a person's name",
             attributes=[TEIAttribute(name="ref", description="authority URI")],
         ),
-        TEIElement(
-            tag="placeName",
-            description="a geographical place name",
-            attributes=[],
-        ),
+        TEIElement(tag="placeName", description="a geographical place name"),
     ],
 )
 
-# 2. Wrap your inference endpoint
 def my_call_fn(prompt: str) -> str:
-    # replace with any LLM call — Anthropic, OpenAI, Gemini, Ollama, …
-    ...
+    ...  # any LLM: Anthropic, OpenAI, Gemini, Ollama, …
 
 endpoint = EndpointConfig(
     capability=EndpointCapability.TEXT_GENERATION,
     call_fn=my_call_fn,
 )
 
-# 3. Annotate
 result = annotate(
     text="Marie Curie was born in Warsaw and later worked in Paris.",
     schema=schema,
     endpoint=endpoint,
-    gliner_model=None,   # set to e.g. "numind/NuNER_Zero" to enable pre-detection
+    gliner_model=None,   # pass e.g. "numind/NuNER_Zero" to enable pre-detection
 )
-
 print(result.xml)
 # <persName>Marie Curie</persName> was born in <placeName>Warsaw</placeName>
 # and later worked in <placeName>Paris</placeName>.
-
-if result.fuzzy_spans:
-    print("Review these spans — context was matched approximately:")
-    for span in result.fuzzy_spans:
-        print(f"  <{span.element}>{span.text}</{span.element}>")
 ```
 
-The input text may already contain XML markup; existing tags are stripped before the LLM sees the text and restored in the final output.
+For provider setup examples (Anthropic, OpenAI, Gemini, Ollama, vLLM) see [tei_annotator/inference/README.md](tei_annotator/inference/README.md).
 
-### Real-endpoint smoke test
+---
 
-`scripts/smoke_test_llm.py` runs the full pipeline against **Gemini 2.0 Flash** and **KISSKI `llama-3.3-70b-instruct`** using API keys from `.env`:
+## Built-in providers
+
+Five connectors live in [`tei_annotator/providers/`](tei_annotator/providers/), enabled by setting the corresponding env var:
+
+| Provider | Env var | ID |
+| --- | --- | --- |
+| HuggingFace Inference Router | `HF_TOKEN` | `hf` |
+| Google Gemini | `GEMINI_API_KEY` | `gemini` |
+| KISSKI academic cloud | `KISSKI_API_KEY` | `kisski` |
+| OpenAI | `OPENAI_API_KEY` | `openai` |
+| Anthropic Claude | `ANTHROPIC_API_KEY` | `claude` |
+
+Adding a new provider: create a module in `tei_annotator/providers/`, subclass `Connector`, add an instance to `_ALL_CONNECTORS` in `__init__.py`. See [tei_annotator/providers/README.md](tei_annotator/providers/README.md).
+
+---
+
+## Built-in schemas
+
+Two annotation schemas are registered in [`tei_annotator/schemas/registry.py`](tei_annotator/schemas/registry.py):
+
+| Key | Task |
+| --- | --- |
+| `bibl` | Tag internal fields of a bibliographic reference (author, title, date, …) |
+| `bibl-reference-segmenter` | Segment a reference list into `<bibl>` spans with optional `<label>` |
+
+Each schema ships with a gold-standard fixture in `tests/fixtures/<schema>-examples.tei.xml` used by the evaluator.
+
+Adding a new schema: register it in `SCHEMA_REGISTRY`. See [tei_annotator/schemas/README.md](tei_annotator/schemas/README.md).
+
+---
+
+## Evaluation and iterative improvement
+
+`scripts/evaluate_llm.py` runs any available provider against a gold-standard TEI file:
 
 ```bash
-uv run scripts/smoke_test_llm.py
+# quick run: 5 records, gemini, bibl-reference-segmenter schema
+uv run scripts/evaluate_llm.py \
+    --provider gemini --schema bibl-reference-segmenter --max-items 5 --verbose
+
+# all available providers, all records, output to file
+uv run scripts/evaluate_llm.py --schema bibl --output-file results.txt
 ```
 
----
+Key flags: `--provider`, `--model`, `--schema`, `--gold-file`, `--max-items`, `--batch-size`, `--match-mode`, `--verbose`, `--grep`, `--shuffle`.
 
-## `annotate()` parameters
-
-| Parameter | Default | Description |
-| --- | --- | --- |
-| `text` | — | Input text; may contain existing XML tags |
-| `schema` | — | `TEISchema` describing elements and attributes in scope |
-| `endpoint` | — | `EndpointConfig` wrapping any `call_fn: (str) -> str` |
-| `gliner_model` | `"numind/NuNER_Zero"` | HuggingFace model for optional pre-detection; `None` to disable |
-| `chunk_size` | `1500` | Maximum characters per LLM prompt chunk |
-| `chunk_overlap` | `200` | Character overlap between consecutive chunks |
-
-### `EndpointCapability` values
-
-| Value | When to use |
-| --- | --- |
-| `TEXT_GENERATION` | Plain LLM — JSON requested via prompt, with one automatic retry on parse failure |
-| `JSON_ENFORCED` | Constrained-decoding endpoint that guarantees valid JSON output |
-| `EXTRACTION` | Native extraction model (GLiNER2 / NuExtract-style); raw text is passed directly |
-
----
-
-## Evaluation
-
-The `tei_annotator.evaluation` module compares annotator output against a manually annotated gold-standard TEI XML file to compute **precision**, **recall**, and **F1 score**.
-
-### How it works
-
-For each gold-standard element (e.g. `<bibl>`):
-
-1. Extract gold spans — walk the element tree and record `(tag, start, end, text)` for every descendant element, using character offsets in the element's plain text.
-2. Strip all tags → plain text (identical to what the annotator will see).
-3. Run `annotate()` on the plain text.
-4. Extract predicted spans from the annotated XML output.
-5. Greedily match predicted spans against gold spans; compute TP / FP / FN.
-
-Because the annotator receives *exactly the same plain text* that the gold spans are anchored to, character offsets align without any additional normalisation.
-
-### Match modes
-
-| Mode | A match if… |
-| --- | --- |
-| `TEXT` (default) | same element tag + normalised text content |
-| `EXACT` | same element tag + identical `(start, end)` offsets |
-| `OVERLAP` | same element tag + intersection-over-union ≥ threshold (default 0.5) |
-
-### Evaluation example
-
-```python
-from tei_annotator import create_schema, EndpointConfig, EndpointCapability
-from tei_annotator.evaluation import evaluate_file, MatchMode
-
-schema = create_schema("schema/tei-bib.rng", element="biblStruct", depth=1)
-
-endpoint = EndpointConfig(
-    capability=EndpointCapability.TEXT_GENERATION,
-    call_fn=my_call_fn,
-)
-
-per_record, overall = evaluate_file(
-    gold_xml_path="tests/fixtures/blbl-examples.tei.xml",
-    schema=schema,
-    endpoint=endpoint,
-    match_mode=MatchMode.TEXT,
-    max_items=10,   # optional: evaluate only the first N records
-)
-
-print(overall.report())
-# === Evaluation Results ===
-# Micro  P=0.821  R=0.754  F1=0.786  (TP=83  FP=18  FN=27)
-# Macro  P=0.834  R=0.762  F1=0.791
-#
-# Per-element breakdown:
-#   author               P=0.923  R=0.960  F1=0.941  (TP=24  FP=2  FN=1)
-#   biblScope            P=0.750  R=0.600  F1=0.667  (TP=12  FP=4  FN=8)
-#   date                 P=0.867  R=0.867  F1=0.867  (TP=13  FP=2  FN=2)
-#   ...
-```
-
-`EvaluationResult` exposes both **micro-averaged** metrics (aggregate TP/FP/FN counts, then compute rates — correct for imbalanced element-type distributions) and **macro-averaged** metrics (average per-element rates — weights all types equally). The full span lists (`matched`, `unmatched_gold`, `unmatched_pred`) are available for detailed inspection.
-
----
-
-## Iterative schema optimisation
-
-`scripts/evaluate_llm.py` is a self-contained blueprint for building and iteratively improving your own annotation schema against a gold standard.
-
-### How to adapt it for your own use case
-
-1. **Copy `tei_annotator/schemas/blbl.py`** and replace the element definitions with those relevant to your domain.  Each `TEIElement.description` is the primary signal the LLM uses to decide what to annotate — see [docs/tei-element-descriptions.md](docs/tei-element-descriptions.md) for evidence-based guidelines on writing effective descriptions.
-
-2. **Create a gold-standard XML file** — a TEI parent element (e.g. `<listBibl>` or equivalent container) with a representative sample of manually annotated records (such as `<bibl>` elements).  Point `GOLD_FILE` at it.
-
-3. **Add your LLM endpoint** using the existing `make_gemini_call_fn` / `make_kisski_call_fn` factories as templates, or drop in any `call_fn: (str) -> str`.
-
-4. **Run the evaluator** with `--verbose --match-mode overlap` to capture missed and spurious spans for every failing record:
-
-   ```bash
-   uv run scripts/evaluate_llm.py --verbose --match-mode overlap --max-items 20
-   ```
-
-5. **Iterate on descriptions** — use the `--grep` flag to re-run only the failing records after each change, which keeps the feedback loop fast:
-
-   ```bash
-   uv run scripts/evaluate_llm.py --verbose --match-mode overlap \
-       --grep "pattern matching failing records"
-   ```
-
-### Automated iteration with Claude Code
-
-If you are using [Claude Code](https://claude.ai/claude-code), the repository ships with an `optimize-element-descriptions` skill (`.claude/skills/optimize-element-descriptions/`) that automates the diagnosis–edit–re-evaluate loop:
-
-```text
-/optimize-element-descriptions --max-items 20 --provider gemini
-```
-
-The skill follows the iterative workflow above: it reads the evaluation output, groups failures into patterns (wrong element, missing parent span, bad boundaries, …), edits `build_blbl_schema()` following the guidelines in [docs/tei-element-descriptions.md](docs/tei-element-descriptions.md), re-evaluates only the affected records with `--grep`, and stops when no further improvement is possible through description changes alone.
+For the iterative schema-improvement workflow see [docs/tei-element-descriptions.md](docs/tei-element-descriptions.md). For metrics details see [tei_annotator/evaluation/README.md](tei_annotator/evaluation/README.md).
 
 ---
 
 ## Demo and webservice
 
-There is a (very slow) demo on HuggingFace:
-
-<https://huggingface.co/spaces/cmboulanger/tei-annotator>
-
-For local testing and development, two interfaces are provided:
-
-- **`app.py`** — Gradio app for HuggingFace Spaces. See [docs/huggingface-deployment.md](docs/huggingface-deployment.md) for setup and deployment instructions.
-- **`webservice/`** — FastAPI JSON API + browser UI. Supports multiple LLM providers (HuggingFace, Gemini, OpenAI, Claude, KISSKI) — enabled based on which API keys are set in `.env`. See [webservice/README.md](webservice/README.md) for full documentation.
+- **HuggingFace demo:** <https://huggingface.co/spaces/cmboulanger/tei-annotator>
+- **`app.py`** — Gradio app for HuggingFace Spaces. See [docs/huggingface-deployment.md](docs/huggingface-deployment.md).
+- **`webservice/`** — FastAPI JSON API + browser UI, all five providers. See [webservice/README.md](webservice/README.md).
 
 ---
 
 ## Testing
 
 ```bash
-# Unit tests (fully mocked, < 0.1 s)
-uv run task test
+# Unit tests (fully mocked, < 0.5 s)
+uv run pytest
 
-# Integration tests — complex pipeline scenarios, no model download needed
+# Integration tests (no model download needed)
 uv run pytest --override-ini="addopts=" -m integration \
     tests/integration/test_pipeline_e2e.py -k "not real_gliner"
 
-# Integration tests — real GLiNER model (downloads ~400 MB on first run)
+# Integration tests with real GLiNER model (~400 MB on first run)
 uv run pytest --override-ini="addopts=" -m integration \
     tests/integration/test_gliner_detector.py \
     tests/integration/test_pipeline_e2e.py::test_pipeline_with_real_gliner
-```
-
-Integration tests are excluded from the default `pytest` run via `pyproject.toml`:
-
-```toml
-[tool.pytest.ini_options]
-addopts = "-m 'not integration'"
 ```

@@ -61,7 +61,7 @@ _sel = os.environ.get("SELECTED_MODEL", "")
 _SELECTED_PROVIDER, _SELECTED_MODEL_ID = (_sel.split("/", 1) if "/" in _sel else (None, None))
 
 # Path to the evaluation fixture (relative to this file's parent directory).
-_FIXTURE_PATH = Path(__file__).parent.parent / "tests" / "fixtures" / "blbl-examples.tei.xml"
+_FIXTURE_PATH = Path(__file__).parent.parent / "tests" / "fixtures" / "bibl-examples.tei.xml"
 
 # Static HTML file served at GET /.
 _HTML_FILE = Path(__file__).parent / "static" / "index.html"
@@ -226,14 +226,14 @@ def _run_evaluation(
     from tei_annotator.evaluation.metrics import MatchMode, aggregate, compute_metrics
     from tei_annotator.inference.endpoint import EndpointCapability, EndpointConfig
     from tei_annotator.pipeline import annotate
-    from tei_annotator.schemas.blbl import build_blbl_schema
+    from tei_annotator.schemas.registry import build_schema
 
     call_fn = _resolve_call_fn(provider_id, model_id, premium_key=premium_key)
     endpoint = EndpointConfig(
         capability=EndpointCapability.TEXT_GENERATION,
         call_fn=call_fn,
     )
-    schema = build_blbl_schema()
+    schema = build_schema("bibl")
     bibls = _load_fixture_bibls()
     rng = random.Random(seed)
     samples = rng.sample(bibls, min(n, len(bibls)))
@@ -454,7 +454,7 @@ async def annotate_api(
 
     from tei_annotator.inference.endpoint import EndpointCapability, EndpointConfig
     from tei_annotator.pipeline import annotate
-    from tei_annotator.schemas.blbl import build_blbl_schema
+    from tei_annotator.schemas.registry import build_schema
 
     if body.text is None and body.texts is None:
         raise HTTPException(status_code=422, detail="Provide either 'text' or 'texts'.")
@@ -464,7 +464,7 @@ async def annotate_api(
     if body.tei_schema is not None:
         schema = _schema_from_dict(body.tei_schema.model_dump())
     else:
-        schema = build_blbl_schema()
+        schema = build_schema("bibl")
 
     endpoint = EndpointConfig(
         capability=EndpointCapability.TEXT_GENERATION,

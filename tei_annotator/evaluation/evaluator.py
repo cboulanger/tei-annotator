@@ -69,7 +69,7 @@ from ..pipeline import annotate
 from .extractor import extract_spans
 from .metrics import EvaluationResult, MatchMode, aggregate, compute_metrics
 
-# TEI namespace used in documents like blbl-examples.tei.xml
+# TEI namespace used in documents like bibl-examples.tei.xml
 _TEI_NS = "http://www.tei-c.org/ns/1.0"
 
 
@@ -110,6 +110,12 @@ def evaluate_element(
     """
     # Step 1 — extract gold spans (and the plain text they are anchored to)
     plain_text, gold_spans = extract_spans(gold_element)
+
+    # Filter gold spans to only schema-defined elements so that formatting
+    # elements in the gold file (e.g. <lb/> in referenceSegmenter data) do
+    # not inflate false-negative counts.
+    schema_tags = frozenset(e.tag for e in schema.elements)
+    gold_spans = [s for s in gold_spans if s.element in schema_tags]
 
     if not plain_text.strip():
         return compute_metrics([], [])
@@ -177,7 +183,7 @@ def evaluate_file(
     Parameters
     ----------
     gold_xml_path :
-        Path to a TEI XML file (e.g. ``tests/fixtures/blbl-examples.tei.xml``).
+        Path to a TEI XML file (e.g. ``tests/fixtures/bibl-examples.tei.xml``).
     schema :
         TEISchema to use for annotation.
     endpoint :

@@ -6,7 +6,7 @@ Typical usage::
     from tei_annotator.evaluation import evaluate_file, MatchMode
 
     per_record, overall = evaluate_file(
-        gold_xml_path="tests/fixtures/blbl-examples.tei.xml",
+        gold_xml_path="tests/fixtures/bibl-examples.tei.xml",
         schema=my_schema,
         endpoint=my_endpoint,
         match_mode=MatchMode.TEXT,

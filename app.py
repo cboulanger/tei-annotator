@@ -9,21 +9,16 @@ Deploy on HF Spaces (SDK: gradio).  Required secret: HF_TOKEN.
 
 from __future__ import annotations
 
-import json
 import os
 import random
 import time
-import urllib.error
-import urllib.request
 from pathlib import Path
 
 import gradio as gr
 
 # ---------------------------------------------------------------------------
-# Config (mirrors webservice/main.py — keep in sync if you change models)
+# Config
 # ---------------------------------------------------------------------------
-
-_HF_TOKEN = os.environ.get("HF_TOKEN", "")
 
 _HF_MODELS = [
     "meta-llama/Llama-3.3-70B-Instruct:nscale",
@@ -38,44 +33,12 @@ _HF_MODELS = [
     "Qwen/QwQ-32B:nscale",
 ]
 
-_HF_BASE_URL = "https://router.huggingface.co/v1"
-_FIXTURE_PATH = Path(__file__).parent / "tests" / "fixtures" / "blbl-examples.tei.xml"
+_FIXTURE_PATH = Path(__file__).parent / "tests" / "fixtures" / "bibl-examples.tei.xml"
 
-# Build the schema once at startup — it's immutable and expensive-ish to rebuild per request.
-from tei_annotator.schemas.blbl import build_blbl_schema as _build_blbl_schema
-_SCHEMA = _build_blbl_schema()
+from tei_annotator.providers import get_connector as _get_connector
+from tei_annotator.schemas.registry import build_schema as _build_schema
 
-# ---------------------------------------------------------------------------
-# HTTP helper
-# ---------------------------------------------------------------------------
-
-
-def _post_json(url: str, payload: dict, headers: dict, timeout: int = 300) -> dict:
-    body = json.dumps(payload).encode()
-    req = urllib.request.Request(url, data=body, headers=headers, method="POST")
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            return json.loads(resp.read())
-    except urllib.error.HTTPError as exc:
-        detail = exc.read().decode(errors="replace")
-        raise RuntimeError(f"HTTP {exc.code}: {detail}") from exc
-
-
-def _make_call_fn(model: str, timeout: int = 300):
-    url = f"{_HF_BASE_URL}/chat/completions"
-    headers = {"Content-Type": "application/json", "Authorization": f"Bearer {_HF_TOKEN}"}
-
-    def call_fn(prompt: str) -> str:
-        payload = {
-            "model": model,
-            "messages": [{"role": "user", "content": prompt}],
-            "temperature": 0.1,
-        }
-        result = _post_json(url, payload, headers, timeout)
-        return result["choices"][0]["message"]["content"]
-
-    call_fn.__name__ = f"hf/{model}"
-    return call_fn
+_SCHEMA = _build_schema("bibl")
 
 
 # ---------------------------------------------------------------------------
@@ -84,7 +47,7 @@ def _make_call_fn(model: str, timeout: int = 300):
 
 
 def do_annotate(text: str, model: str):
-    if not _HF_TOKEN:
+    if not _get_connector("hf").is_available():
         return "", "HF_TOKEN is not set. Add it as a Space secret."
     if not text.strip():
         return "", "Please enter some text to annotate."
@@ -94,7 +57,7 @@ def do_annotate(text: str, model: str):
 
     endpoint = EndpointConfig(
         capability=EndpointCapability.TEXT_GENERATION,
-        call_fn=_make_call_fn(model),
+        call_fn=_get_connector("hf").make_call_fn(model),
     )
     schema = _SCHEMA
     t0 = time.monotonic()
@@ -124,7 +87,7 @@ _BATCH_SEP = "\n---RECORD|||SEP|||BOUNDARY---\n"
 
 
 def do_evaluate(model: str, n: int, batch_size: int = 1):
-    if not _HF_TOKEN:
+    if not _get_connector("hf").is_available():
         return None, "HF_TOKEN is not set. Add it as a Space secret."
 
     from lxml import etree
@@ -143,7 +106,7 @@ def do_evaluate(model: str, n: int, batch_size: int = 1):
     schema = _SCHEMA
     endpoint = EndpointConfig(
         capability=EndpointCapability.TEXT_GENERATION,
-        call_fn=_make_call_fn(model),
+        call_fn=_get_connector("hf").make_call_fn(model),
     )
     batch_size = max(1, int(batch_size))
     parser = etree.XMLParser(recover=True)
