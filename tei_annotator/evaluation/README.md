@@ -145,7 +145,43 @@ Per-element breakdown:
 
 The `matched`, `unmatched_gold`, and `unmatched_pred` lists on each `EvaluationResult` are available for detailed error analysis beyond the summary table.
 
-### Terminology
+---
+
+## Uncertain-boundary gold spans (`cert="low"`)
+
+Some annotation boundaries are genuinely ambiguous — two adjacent passages could legitimately be either one span or two, and the choice reflects editorial judgement rather than a parsing error. Continuing to iterate on prompt rules in these cases is unproductive.
+
+### How to mark an uncertain boundary
+
+Set `cert="low"` on the **second** of two adjacent same-element gold spans whose boundary is uncertain:
+
+```xml
+<bibl><label>5</label> Some commentary that mentions Althusser's distinction;</bibl><bibl cert="low">see M. Bunn, 'Reimagining Repression', History and Theory, 54 (2015).<lb/> </bibl>
+```
+
+**Constraints:**
+
+- The two spans must be **adjacent with no tail text** between them (the closing `>` of the first span is immediately followed by the opening `<` of the second).
+- Both spans must have the **same element tag**.
+- Only the second span carries `cert="low"`; the first has no special attribute.
+
+### How the evaluator handles it
+
+After the standard greedy matching pass, `compute_metrics()` runs a second **union-match pass**:
+
+1. Find every pair of adjacent same-element gold spans `(G1, G2)` where `G2.cert == "low"` and both are still unmatched.
+2. Compute the union text: `" ".join((G1.text + G2.text).split())`.
+3. Search unmatched predicted spans for a span whose `normalized_text` equals the union text.
+4. If found: credit **both** `G1` and `G2` as true positives and remove the merged predicted span from false positives.
+
+This means the evaluator accepts either model behaviour without penalty:
+
+- Model **splits** the passage → both gold spans match normally via standard greedy matching (TP = 2).
+- Model **merges** the passage into one span → union-match pass credits TP = 2, FP = 0.
+
+---
+
+## Terminology
 
 | Term         | Field            | Meaning                                                                   |
 |--------------|------------------|---------------------------------------------------------------------------|

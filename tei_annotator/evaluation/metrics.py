@@ -294,10 +294,64 @@ def compute_metrics(
     -------
     :class:`EvaluationResult`
         Contains matched pairs, unmatched spans, and per-element metrics.
+
+    Notes
+    -----
+    A gold span with ``cert="low"`` marks an uncertain boundary.  When both
+    that span and its immediately preceding same-element gold span are
+    unmatched, the evaluator checks whether a single predicted span covers
+    their union (i.e. the model merged them).  If so, both gold spans are
+    credited as true positives and the merged predicted span is not penalised
+    as a false positive.  This lets annotators express "split or merge are
+    both acceptable" without duplicating gold data.
     """
     matched, unmatched_gold, unmatched_pred = match_spans(
         gold_spans, pred_spans, mode, overlap_threshold
     )
+
+    # --- cert="low" union-match pass ---
+    # Precondition: adjacent gold spans G1, G2 (same element, G2.cert=="low"),
+    # both unmatched after standard matching.  If an unmatched pred span P
+    # has normalised text equal to the concatenation of G1 and G2, count
+    # all three as true positives.
+    gold_matched_idx: set[int] = {
+        next(i for i, g in enumerate(gold_spans) if g is m.gold)
+        for m in matched
+    }
+    pred_matched_idx: set[int] = {
+        next(i for i, p in enumerate(pred_spans) if p is m.pred)
+        for m in matched
+    }
+    cert_tp_gold: set[int] = set()
+    cert_tp_pred: set[int] = set()
+
+    for i in range(1, len(gold_spans)):
+        g2 = gold_spans[i]
+        if g2.attrs.get("cert") != "low":
+            continue
+        g1 = gold_spans[i - 1]
+        if g1.element != g2.element:
+            continue
+        if (i - 1) in gold_matched_idx or i in gold_matched_idx:
+            continue
+        if (i - 1) in cert_tp_gold or i in cert_tp_gold:
+            continue
+        union_text = " ".join((g1.text + g2.text).split())
+        for j, p in enumerate(pred_spans):
+            if j in pred_matched_idx or j in cert_tp_pred:
+                continue
+            if p.element != g1.element:
+                continue
+            if p.normalized_text == union_text:
+                cert_tp_gold.update({i - 1, i})
+                cert_tp_pred.add(j)
+                break
+
+    # Rebuild unmatched lists, excluding cert-resolved spans
+    resolved_gold_ids = {id(gold_spans[i]) for i in cert_tp_gold}
+    resolved_pred_ids = {id(pred_spans[j]) for j in cert_tp_pred}
+    effective_unmatched_gold = [s for s in unmatched_gold if id(s) not in resolved_gold_ids]
+    effective_unmatched_pred = [s for s in unmatched_pred if id(s) not in resolved_pred_ids]
 
     # Collect all element types seen in gold or pred
     all_elements: set[str] = set()
@@ -312,9 +366,11 @@ def compute_metrics(
 
     for m in matched:
         tp[m.gold.element] += 1
-    for s in unmatched_gold:
+    for i in cert_tp_gold:
+        tp[gold_spans[i].element] += 1
+    for s in effective_unmatched_gold:
         fn[s.element] += 1
-    for s in unmatched_pred:
+    for s in effective_unmatched_pred:
         fp[s.element] += 1
 
     per_element = {
@@ -329,8 +385,8 @@ def compute_metrics(
 
     return EvaluationResult(
         matched=matched,
-        unmatched_gold=unmatched_gold,
-        unmatched_pred=unmatched_pred,
+        unmatched_gold=effective_unmatched_gold,
+        unmatched_pred=effective_unmatched_pred,
         per_element=per_element,
     )
 

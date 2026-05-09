@@ -326,6 +326,51 @@ class TestAggregate:
 
 
 # ---------------------------------------------------------------------------
+# metrics — cert="low" union-match
+# ---------------------------------------------------------------------------
+
+class TestCertLowUnionMatch:
+    """cert='low' on a gold span marks an uncertain boundary.
+
+    A predicted span that covers the union of G1 + G2(cert='low') should be
+    accepted as TP for both without generating any FP or FN.
+    """
+
+    def _span(self, elem, text, **attrs):
+        return EvaluationSpan(elem, 0, len(text), text, attrs=attrs)
+
+    def test_merged_pred_scores_as_two_tps(self):
+        """Model merges G1+G2(cert=low) → TP=2, FP=0, FN=0."""
+        g1 = EvaluationSpan("bibl", 0, 10, "commentary;")
+        g2 = EvaluationSpan("bibl", 10, 20, "see Bunn.", attrs={"cert": "low"})
+        p_merged = EvaluationSpan("bibl", 0, 20, "commentary;see Bunn.")
+        r = compute_metrics([g1, g2], [p_merged])
+        assert r.micro_tp == 2
+        assert r.micro_fp == 0
+        assert r.micro_fn == 0
+        assert r.micro_f1 == pytest.approx(1.0)
+
+    def test_split_pred_still_matches_normally(self):
+        """Model splits correctly → standard TP=2, cert pass does not interfere."""
+        g1 = EvaluationSpan("bibl", 0, 10, "commentary;")
+        g2 = EvaluationSpan("bibl", 10, 20, "see Bunn.", attrs={"cert": "low"})
+        p1 = EvaluationSpan("bibl", 0, 10, "commentary;")
+        p2 = EvaluationSpan("bibl", 10, 20, "see Bunn.")
+        r = compute_metrics([g1, g2], [p1, p2])
+        assert r.micro_tp == 2
+        assert r.micro_fp == 0
+        assert r.micro_fn == 0
+
+    def test_cert_low_unmatched_with_no_merger_is_fn(self):
+        """Model misses both G1 and G2 entirely → FN=2, no cert rescue."""
+        g1 = EvaluationSpan("bibl", 0, 10, "commentary;")
+        g2 = EvaluationSpan("bibl", 10, 20, "see Bunn.", attrs={"cert": "low"})
+        r = compute_metrics([g1, g2], [])
+        assert r.micro_fn == 2
+        assert r.micro_tp == 0
+
+
+# ---------------------------------------------------------------------------
 # evaluator — evaluate_element (mocked endpoint)
 # ---------------------------------------------------------------------------
 

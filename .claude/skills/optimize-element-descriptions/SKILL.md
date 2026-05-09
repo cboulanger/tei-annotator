@@ -1,13 +1,17 @@
 ---
 name: optimize-element-descriptions
-description: Iteratively improve TEIElement descriptions in _build_schema() to maximise F1 against the gold standard. Use when annotation quality is low or when evaluation shows missed or spurious spans.
+description: Iteratively improve TEIElement descriptions and schema rules to maximise F1 against the gold standard. Use when annotation quality is low or when evaluation shows missed or spurious spans.
 disable-model-invocation: true
 argument-hint: "--max-items N --provider gemini|kisski|all"
 ---
 
 # optimize-element-descriptions
 
-Iteratively improve the `TEIElement` descriptions in `scripts/evaluate_llm.py::_build_schema()` to maximise F1 score against the gold standard.
+Iteratively improve the `TEIElement` descriptions and `TEISchema.rules` in the relevant schema file under `tei_annotator/schemas/` to maximise F1 score against the gold standard.
+
+Schema files:
+- `tei_annotator/schemas/bibl.py` — `build_bibl_schema()`
+- `tei_annotator/schemas/bibl_reference_segmenter.py` — `build_bibl_reference_segmenter_schema()`
 
 Before writing any descriptions, read the guidelines in [docs/tei-element-descriptions.md](../../../docs/tei-element-descriptions.md).
 
@@ -49,7 +53,7 @@ Focus on patterns that affect **multiple records or both models**: single-record
 
 ### Step 3 — Improve descriptions
 
-Read `scripts/evaluate_llm.py` to see the current descriptions, then edit `_build_schema()` following the guidelines in [docs/tei-element-descriptions.md](../../../docs/tei-element-descriptions.md).
+Read the relevant schema file under `tei_annotator/schemas/` to see the current descriptions, then edit the builder function following the guidelines in [docs/tei-element-descriptions.md](../../../docs/tei-element-descriptions.md).
 
 Key principles (summary):
 - Phrase everything as "emit a span", not "wrap in a tag"
@@ -85,8 +89,27 @@ Compare the new F1 values against the Step 1 baseline for each affected record.
 
 **Stop** if any of the following apply:
 - No improvement across two consecutive rounds
-- Remaining failures appear to be gold-standard annotation issues (flag these for human review)
+- Remaining failures appear to be gold-standard annotation issues (flag these for human review; see Step 5a)
 - Failures are caused by model-level reasoning limits that description changes cannot fix (e.g. a model consistently ignoring a rule that is already clearly stated)
+
+---
+
+### Step 5a — Handle editorial ambiguities with `cert="low"`
+
+If a failure pattern **persists across model families** after two or more rule iterations and the boundary in question reflects a genuine editorial choice (either split or merged would be defensible), do **not** continue iterating on the prompt. Instead, update the gold file:
+
+1. Split the merged gold span into two adjacent spans with **no tail text** between them.
+2. Set `cert="low"` on the **second** span.
+
+```xml
+<!-- before -->
+<bibl><label>5</label> Commentary mentioning Althusser; see Bunn (2015).<lb/> </bibl>
+
+<!-- after -->
+<bibl><label>5</label> Commentary mentioning Althusser;</bibl><bibl cert="low">see Bunn (2015).<lb/> </bibl>
+```
+
+The evaluator's union-match pass then accepts either model behaviour (split or merged) as correct. See [tei_annotator/evaluation/README.md](../../../tei_annotator/evaluation/README.md#uncertain-boundary-gold-spans-certlow) for the full specification.
 
 ---
 
