@@ -159,6 +159,18 @@ uv run scripts/evaluate_llm.py --schema bibl --output-file results.txt
 
 Key flags: `--provider`, `--model`, `--schema`, `--gold-file`, `--max-items`, `--batch-size`, `--match-mode`, `--verbose`, `--grep`, `--shuffle`.
 
+`scripts/collect_hard_examples.py` builds a gold fixture of challenging examples by evaluating items in mini-batches and retaining those the model handles poorly:
+
+```bash
+# collect 30 hard bibl-reference-segmenter examples using KISSKI gemma-4-31b-it
+uv run scripts/collect_hard_examples.py \
+    --provider kisski --model gemma-4-31b-it \
+    --limit 30 --batch-size 10 --f1-threshold 0.95 \
+    --output data/hard-bibl-refseg-gemma.tei.xml
+```
+
+Key flags: `--schema`, `--provider`, `--model`, `--limit`, `--batch-size`, `--f1-threshold`, `--max-per-batch`, `--context`, `--shuffle`.
+
 For the iterative schema-improvement workflow see [docs/tei-element-descriptions.md](docs/tei-element-descriptions.md). For metrics details see [tei_annotator/evaluation/README.md](tei_annotator/evaluation/README.md).
 
 ---
