@@ -11,7 +11,7 @@ Annotation schema definitions and the registry that maps schema names to their b
 | `bibl` | `bibl.py` | Tag internal fields of a bibliographic reference (author, title, date, publisher, …) | `listBibl` | `bibl` |
 | `bibl-reference-segmenter` | `bibl_reference_segmenter.py` | Segment a reference list into `<bibl>` spans with optional `<label>` | `text` | `listBibl` |
 
-Each schema ships with a gold-standard fixture at `tests/fixtures/<schema>-examples.tei.xml` used by `scripts/evaluate_llm.py`.
+Each schema ships with at least one gold-standard corpus file at `data/corpus/<schema>.default.tei.xml` used by `scripts/evaluate_llm.py` and the webservice.
 
 ---
 

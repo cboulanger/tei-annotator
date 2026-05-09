@@ -450,7 +450,7 @@ def _parse_args() -> argparse.Namespace:
     )
     p.add_argument(
         "--data-dir",
-        default="data",
+        default="data/raw",
         metavar="DIR",
         help="Root directory for source TEI files (joined with --data-glob).",
     )

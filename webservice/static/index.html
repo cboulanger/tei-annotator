@@ -191,7 +191,7 @@
 </head>
 <body>
   <h1>TEI Annotator</h1>
-  <p class="subtitle">This demo application annotates bibliographic information with TEI XML tags such as <code>tei:author</code>, <code>tei:title</code> etc. Paste a bibliographic entry below or run evaluation against test examples.</p>
+  <p class="subtitle">Annotates bibliographic information with TEI XML tags. Paste a bibliographic entry below or run evaluation against gold-standard corpus files.</p>
 
   <div id="no-token" class="no-token" hidden>
     No provider is configured. Set at least one API key in
@@ -205,13 +205,21 @@
 
     <div class="eval-row">
       <input type="checkbox" id="eval-mode">
-      <label for="eval-mode">Evaluate against test examples from the gold standard corpus</label>
+      <label for="eval-mode">Evaluate against gold-standard corpus</label>
     </div>
 
     <div class="row">
+      <div id="schema-select-wrap">
+        <label for="schema-sel" style="display:inline; margin-right:0.4rem;">Schema</label>
+        <select id="schema-sel"></select>
+      </div>
       <div id="model-select-wrap">
         <label for="model" style="display:inline; margin-right:0.4rem;">Model</label>
         <select id="model"></select>
+      </div>
+      <div id="corpus-select-wrap" hidden>
+        <label for="corpus-sel" style="display:inline; margin-right:0.4rem;">Corpus</label>
+        <select id="corpus-sel"></select>
       </div>
       <div id="n-samples-wrap" hidden>
         <label for="n-samples" style="display:inline; margin-right:0.4rem;">Samples</label>
@@ -285,6 +293,8 @@
   <script>
     const textarea        = document.getElementById('text');
     const evalCheck       = document.getElementById('eval-mode');
+    const schemaSel       = document.getElementById('schema-sel');
+    const corpusSel       = document.getElementById('corpus-sel');
     const modelSel        = document.getElementById('model');
     const submitBtn       = document.getElementById('submit-btn');
     const sendLabel       = document.getElementById('sending-label');
@@ -301,6 +311,8 @@
     const batchSizeWrap   = document.getElementById('batch-size-wrap');
     const batchSizeInput  = document.getElementById('batch-size');
     const cancelBtn       = document.getElementById('cancel-btn');
+    const schemaSelectWrap= document.getElementById('schema-select-wrap');
+    const corpusSelectWrap= document.getElementById('corpus-select-wrap');
     const modelSelectWrap = document.getElementById('model-select-wrap');
     const modelCompareWrap= document.getElementById('model-compare-wrap');
     const modelsAvailable = document.getElementById('models-available');
@@ -310,8 +322,10 @@
 
     // allProviders: [{id, name, models, default_model}]
     // allModels: flat list of {provider, model} objects
+    // allSchemas: [{id, default_corpus, corpora}]
     let allProviders = [];
     let allModels = [];
+    let allSchemas = [];
 
     function fmt(v) { return v.toFixed(3); }
 
@@ -400,8 +414,6 @@
 
     addModelBtn.addEventListener('click', () => moveOptions(modelsAvailable, modelsSelected));
     removeModelBtn.addEventListener('click', () => moveOptions(modelsSelected, modelsAvailable));
-
-    // Double-click to move
     modelsAvailable.addEventListener('dblclick', () => moveOptions(modelsAvailable, modelsSelected));
     modelsSelected.addEventListener('dblclick', () => moveOptions(modelsSelected, modelsAvailable));
 
@@ -418,6 +430,57 @@
       syncSubmitBtn();
     }
 
+    // Update corpus dropdown for the currently selected schema
+    function updateCorpusOptions() {
+      const schemaId = schemaSel.value;
+      const schema = allSchemas.find(s => s.id === schemaId);
+      corpusSel.innerHTML = '';
+      if (schema) {
+        schema.corpora.forEach(label => {
+          const opt = document.createElement('option');
+          opt.value = label;
+          opt.textContent = label;
+          if (label === schema.default_corpus) opt.selected = true;
+          corpusSel.appendChild(opt);
+        });
+      }
+    }
+
+    // Reload samples from /api/sample using current schema + corpus
+    async function reloadSamples() {
+      const n = Math.max(1, parseInt(nSamplesInput.value, 10) || 5);
+      const schema = schemaSel.value;
+      const corpus = corpusSel.value || 'default';
+      textarea.value = 'Loading samples…';
+      try {
+        const resp = await fetch(
+          `/api/sample?n=${n}&schema=${encodeURIComponent(schema)}&corpus=${encodeURIComponent(corpus)}`,
+          {headers: authHeaders({})}
+        );
+        const samples = await resp.json();
+        textarea.value = samples.map(s => s.text).join('\n\n---\n\n');
+      } catch {
+        textarea.value = '(Failed to load samples)';
+      }
+    }
+
+    // Schema selector change
+    schemaSel.addEventListener('change', async function () {
+      updateCorpusOptions();
+      if (evalCheck.checked) {
+        clearResults();
+        await reloadSamples();
+      }
+    });
+
+    // Corpus selector change
+    corpusSel.addEventListener('change', async function () {
+      if (evalCheck.checked) {
+        clearResults();
+        await reloadSamples();
+      }
+    });
+
     // Eval mode checkbox
     evalCheck.addEventListener('change', async function () {
       clearResults();
@@ -427,19 +490,13 @@
         submitBtn.textContent = 'Evaluate';
         modelSelectWrap.hidden = true;
         modelCompareWrap.hidden = false;
+        corpusSelectWrap.hidden = false;
         nSamplesWrap.hidden = false;
         batchSizeWrap.hidden = false;
         syncBatchSize(Math.max(1, parseInt(nSamplesInput.value, 10) || 5));
         populateAvailableModels();
-        textarea.value = 'Loading samples…';
-        try {
-          const n = Math.max(1, parseInt(nSamplesInput.value, 10) || 5);
-          const resp = await fetch(`/api/sample?n=${n}`, {headers: authHeaders({})});
-          const samples = await resp.json();
-          textarea.value = samples.map(s => s.text).join('\n\n---\n\n');
-        } catch {
-          textarea.value = '(Failed to load samples)';
-        }
+        updateCorpusOptions();
+        await reloadSamples();
       } else {
         textarea.readOnly = false;
         textarea.value = '';
@@ -447,6 +504,7 @@
         submitBtn.disabled = false;
         modelSelectWrap.hidden = false;
         modelCompareWrap.hidden = true;
+        corpusSelectWrap.hidden = true;
         nSamplesWrap.hidden = true;
         batchSizeWrap.hidden = true;
       }
@@ -462,14 +520,7 @@
       if (!evalCheck.checked) return;
       const n = Math.max(1, parseInt(this.value, 10) || 5);
       syncBatchSize(n);
-      textarea.value = 'Loading samples…';
-      try {
-        const resp = await fetch(`/api/sample?n=${n}`, {headers: authHeaders({})});
-        const samples = await resp.json();
-        textarea.value = samples.map(s => s.text).join('\n\n---\n\n');
-      } catch {
-        textarea.value = '(Failed to load samples)';
-      }
+      await reloadSamples();
     });
 
     function selectedProviderModel() {
@@ -481,6 +532,8 @@
       clearResults();
       const isEval = evalCheck.checked;
       const n = Math.max(1, parseInt(nSamplesInput.value, 10) || 5);
+      const schemaId = schemaSel.value;
+      const corpusLabel = corpusSel.value || 'default';
 
       if (!isEval) {
         // Single annotation
@@ -495,7 +548,7 @@
           const resp = await fetch('/api/annotate', {
             method: 'POST',
             headers: authHeaders(),
-            body: JSON.stringify({ text: textarea.value, provider, model }),
+            body: JSON.stringify({ text: textarea.value, provider, model, schema_id: schemaId }),
           });
           const data = await resp.json();
           if (!resp.ok) showError(data.detail ?? `Error ${resp.status}`);
@@ -544,7 +597,6 @@
         const reqStart = performance.now();
         setProgress(i, total, `${baseMsg}…`);
 
-        // Live timer — updates label every second with elapsed time
         const timerInterval = setInterval(() => {
           setProgress(i, total, `${baseMsg} — ${fmtDuration(performance.now() - reqStart)}`);
         }, 1000);
@@ -554,7 +606,7 @@
           const resp = await fetch('/api/evaluate', {
             method: 'POST',
             headers: authHeaders(),
-            body: JSON.stringify({ provider, model, n, seed, batch_size: batchSize }),
+            body: JSON.stringify({ provider, model, schema: schemaId, corpus: corpusLabel, n, seed, batch_size: batchSize }),
             signal: currentController.signal,
           });
           const data = await resp.json();
@@ -656,7 +708,20 @@
           return;
         }
         allProviders = cfg.providers;
+        allSchemas = cfg.schemas || [];
         allModels = [];
+
+        // Populate schema dropdown
+        allSchemas.forEach(schema => {
+          const opt = document.createElement('option');
+          opt.value = schema.id;
+          opt.textContent = schema.id;
+          schemaSel.appendChild(opt);
+        });
+        // Initialise corpus options for the first schema
+        updateCorpusOptions();
+
+        // Populate model dropdown
         cfg.providers.forEach(provider => {
           const grp = document.createElement('optgroup');
           grp.label = provider.name;
@@ -670,6 +735,7 @@
           });
           modelSel.appendChild(grp);
         });
+
         if (cfg.premium) {
           const badge = document.createElement('span');
           badge.textContent = ' ★ Premium models enabled';

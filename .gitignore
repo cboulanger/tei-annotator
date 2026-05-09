@@ -16,5 +16,5 @@ wheels/
 .server.pid
 .duckversions
 
-# Data
-data/
+# Data — raw inputs/outputs are gitignored; data/corpus/ is tracked
+data/raw/

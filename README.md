@@ -138,7 +138,7 @@ Two annotation schemas are registered in [`tei_annotator/schemas/registry.py`](t
 | `bibl` | Tag internal fields of a bibliographic reference (author, title, date, …) |
 | `bibl-reference-segmenter` | Segment a reference list into `<bibl>` spans with optional `<label>` |
 
-Each schema ships with a gold-standard fixture in `tests/fixtures/<schema>-examples.tei.xml` used by the evaluator.
+Each schema ships with at least one gold-standard corpus file in `data/corpus/<schema>.default.tei.xml` used by the evaluator and webservice.
 
 Adding a new schema: register it in `SCHEMA_REGISTRY`. See [tei_annotator/schemas/README.md](tei_annotator/schemas/README.md).
 

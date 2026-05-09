@@ -31,7 +31,10 @@ scripts/
 tests/
   test_*.py             unit tests (fully mocked, < 0.5 s) — run with: uv run pytest
   integration/          real GLiNER / end-to-end tests (excluded from CI by default)
-  fixtures/             gold TEI XML files used by evaluate_llm.py and test_evaluation.py
+
+data/
+  corpus/               git-tracked gold-standard TEI corpora (bibl.default.tei.xml, etc.)
+  raw/                  gitignored raw source batches and collected hard examples
 
 webservice/             FastAPI JSON API + browser UI
 

@@ -1,7 +1,7 @@
 """
 Bibl bibliographic schema for TEI annotation.
 
-This schema covers the elements that appear in bibl-examples.tei.xml and is
+This schema covers the elements that appear in data/corpus/bibl.default.tei.xml and is
 shared between the evaluation script and the webservice.
 """
 

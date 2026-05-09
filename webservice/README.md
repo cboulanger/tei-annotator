@@ -55,6 +55,32 @@ See [tei_annotator/providers/README.md](../tei_annotator/providers/README.md) fo
 
 ---
 
+## Evaluation corpora
+
+Gold-standard corpus files live in `data/corpus/` at the repository root and are tracked by git. The `data/raw/` subdirectory (gitignored) holds large raw source batches used as input to `scripts/collect_hard_examples.py`.
+
+### File naming
+
+```
+data/corpus/<schema-id>.<label>.tei.xml
+```
+
+| File | Schema | Label |
+| --- | --- | --- |
+| `bibl.default.tei.xml` | `bibl` | `default` |
+| `bibl-reference-segmenter.default.tei.xml` | `bibl-reference-segmenter` | `default` |
+| `bibl-reference-segmenter.hard-cases.tei.xml` | `bibl-reference-segmenter` | `hard-cases` |
+
+The webservice discovers available corpora automatically by globbing `<schema-id>.*.tei.xml` inside the corpus directory. Add new files matching the pattern and they appear in the UI immediately.
+
+Override the corpus directory for custom deployments:
+
+```
+CORPUS_DIR=/path/to/my/corpora   # in .env
+```
+
+---
+
 ## Security
 
 ### API key (`API_KEY`)
@@ -84,10 +110,10 @@ python -c "import secrets; print(secrets.token_hex(24))"
 | Endpoint | Method | Description |
 | --- | --- | --- |
 | `/` | `GET` | Single-page browser UI |
-| `/api/config` | `GET` | Available providers, models, and tokens |
+| `/api/config` | `GET` | Available providers, schemas, corpora, and tokens |
 | `/api/annotate` | `POST` (JSON) | Annotate text, return XML |
-| `/api/evaluate` | `POST` (JSON) | Run evaluation against the gold standard |
-| `/api/sample` | `GET` | Sample plain-text entries from the test fixture |
+| `/api/evaluate` | `POST` (JSON) | Run evaluation against a gold-standard corpus |
+| `/api/sample` | `GET` | Sample plain-text entries from a corpus file |
 | `/docs` | `GET` | Interactive OpenAPI documentation (Swagger UI) |
 
 ### `GET /api/config?key=<premium_token>`
@@ -99,8 +125,20 @@ python -c "import secrets; print(secrets.token_hex(24))"
       "id": "gemini",
       "name": "Google Gemini",
       "description": "...",
-      "models": ["gemini-2.0-flash-lite", "gemini-2.5-flash", "gemini-2.0-flash"],
+      "models": ["gemini-2.0-flash-lite", "gemini-2.5-flash"],
       "default_model": "gemini-2.0-flash-lite"
+    }
+  ],
+  "schemas": [
+    {
+      "id": "bibl",
+      "default_corpus": "default",
+      "corpora": ["default"]
+    },
+    {
+      "id": "bibl-reference-segmenter",
+      "default_corpus": "default",
+      "corpora": ["default", "hard-cases"]
     }
   ],
   "token": "<api_key_or_null>",
@@ -118,10 +156,11 @@ Pass `?key=<PREMIUM_TOKEN>` to receive the full model list and `"premium": true`
 | --- | --- | --- | --- |
 | `text` | `string` | — | Single plain text to annotate. Returns a single response object. |
 | `texts` | `string[]` | — | List of plain texts to annotate (batch mode). Returns an array of response objects. |
-| `batch_size` | `integer` | `1` | Number of texts to send in one LLM call when using `texts`. Values > 1 reduce latency at a potential quality cost. |
+| `batch_size` | `integer` | `1` | Number of texts to send in one LLM call when using `texts`. |
 | `provider` | `string` | first available | Connector id (e.g. `"gemini"`, `"openai"`). |
 | `model` | `string` | provider default | Model ID for the chosen provider. |
-| `schema` | `object` | built-in bibl | Custom TEI schema (see below). Omit to use the built-in bibliographic schema. |
+| `schema_id` | `string` | `"bibl"` | Registered schema name. Takes precedence over inline `schema`. |
+| `schema` | `object` | — | Custom TEI schema (see below). Used only when `schema_id` is absent. |
 
 Exactly one of `text` or `texts` must be provided.
 
@@ -153,20 +192,8 @@ Exactly one of `text` or `texts` must be provided.
 {
   "text": "Doe, J. (2024). A paper. Journal of Foo, 12(3), 1–10.",
   "provider": "gemini",
-  "model": "gemini-2.5-flash"
-}
-```
-
-**Batch example:**
-
-```json
-{
-  "texts": [
-    "Doe, J. (2024). A paper. Journal of Foo, 12(3), 1–10.",
-    "Smith, A. (2023). Another paper. Bar Review, 5(1), 1–5."
-  ],
-  "batch_size": 2,
-  "provider": "gemini"
+  "model": "gemini-2.5-flash",
+  "schema_id": "bibl"
 }
 ```
 
@@ -203,16 +230,40 @@ Each `fuzzy_spans` entry:
 
 ### `POST /api/evaluate`
 
+| Field | Type | Default | Description |
+| --- | --- | --- | --- |
+| `provider` | `string` | first available | Connector id. |
+| `model` | `string` | provider default | Model ID. |
+| `schema` | `string` | `"bibl"` | Registered schema name. |
+| `corpus` | `string` | `"default"` | Corpus label (e.g. `"default"`, `"hard-cases"`). |
+| `n` | `integer` | `5` | Number of random samples. |
+| `seed` | `integer` | — | Random seed for reproducible sampling across providers. |
+| `batch_size` | `integer` | `1` | Records per LLM call. |
+
+Samples `n` records from the selected corpus, annotates each, and returns micro precision/recall/F1 plus a per-element breakdown.
+
+**Example:**
+
 ```json
 {
   "provider": "gemini",
   "model": "gemini-2.0-flash",
+  "schema": "bibl-reference-segmenter",
+  "corpus": "hard-cases",
   "n": 5,
   "seed": 42
 }
 ```
 
-Samples `n` records from the gold-standard fixture, annotates each, and returns micro precision/recall/F1 plus a per-element breakdown. Pass `seed` to reproduce the same sample when comparing providers.
+### `GET /api/sample`
+
+| Parameter | Type | Default | Description |
+| --- | --- | --- | --- |
+| `n` | `integer` | `5` | Number of samples to return. |
+| `schema` | `string` | `"bibl"` | Registered schema name. |
+| `corpus` | `string` | `"default"` | Corpus label. |
+
+Returns an array of `{"text": "..."}` objects.
 
 ---
 

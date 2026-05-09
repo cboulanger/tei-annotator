@@ -31,7 +31,7 @@ The separator is guaranteed to survive the annotation pass unchanged because `in
 
 ## Experiment Setup
 
-- **Gold standard:** `tests/fixtures/bibl-examples.tei.xml` (162 `<bibl>` records)
+- **Gold standard:** `data/corpus/bibl.default.tei.xml` (162 `<bibl>` records)
 - **Match mode:** `text` (normalised whitespace)
 - **GLiNER:** disabled
 

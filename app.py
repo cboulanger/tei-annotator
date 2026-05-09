@@ -33,7 +33,7 @@ _HF_MODELS = [
     "Qwen/QwQ-32B:nscale",
 ]
 
-_FIXTURE_PATH = Path(__file__).parent / "tests" / "fixtures" / "bibl-examples.tei.xml"
+_FIXTURE_PATH = Path(__file__).parent / "data" / "corpus" / "bibl.default.tei.xml"
 
 from tei_annotator.providers import get_connector as _get_connector
 from tei_annotator.schemas.registry import build_schema as _build_schema

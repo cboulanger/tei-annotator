@@ -42,6 +42,13 @@ _API_KEY = os.environ.get("API_KEY", "") or None
 # arrived via ?key=<secret>.  Leave empty to disable the premium tier.
 _PREMIUM_TOKEN = os.environ.get("PREMIUM_TOKEN", "") or None
 
+# Directory containing committed gold-standard corpus files.
+# Override with CORPUS_DIR in .env for custom deployments.
+_CORPUS_DIR = Path(
+    os.environ.get("CORPUS_DIR", "") or
+    Path(__file__).parent.parent / "data" / "corpus"
+)
+
 
 async def _verify_token(authorization: str | None = Header(None)) -> None:
     """Dependency: reject requests that don't carry the configured API_KEY."""
@@ -60,11 +67,27 @@ _BATCH_SEP = "\n---RECORD|||SEP|||BOUNDARY---\n"
 _sel = os.environ.get("SELECTED_MODEL", "")
 _SELECTED_PROVIDER, _SELECTED_MODEL_ID = (_sel.split("/", 1) if "/" in _sel else (None, None))
 
-# Path to the evaluation fixture (relative to this file's parent directory).
-_FIXTURE_PATH = Path(__file__).parent.parent / "tests" / "fixtures" / "bibl-examples.tei.xml"
-
 # Static HTML file served at GET /.
 _HTML_FILE = Path(__file__).parent / "static" / "index.html"
+
+
+# ---------------------------------------------------------------------------
+# Corpus helpers
+# ---------------------------------------------------------------------------
+
+
+def _list_corpus_labels(schema_id: str) -> list[str]:
+    """Return sorted label list for *schema_id* by globbing the corpus directory."""
+    labels = []
+    for p in sorted(_CORPUS_DIR.glob(f"{schema_id}.*.tei.xml")):
+        parts = p.name.split(".", 2)
+        if len(parts) >= 2:
+            labels.append(parts[1])
+    return labels
+
+
+def _corpus_path(schema_id: str, label: str) -> Path:
+    return _CORPUS_DIR / f"{schema_id}.{label}.tei.xml"
 
 
 # ---------------------------------------------------------------------------
@@ -191,35 +214,48 @@ def _schema_from_dict(data: dict):
 _TEI_NS = {"tei": "http://www.tei-c.org/ns/1.0"}
 
 
-def _load_fixture_bibls():
-    """Parse the fixture file and return all <bibl> elements."""
+def _load_corpus_elements(schema_id: str, corpus_label: str) -> list:
+    """Parse the corpus file and return all child elements for the schema."""
     from lxml import etree
 
-    if not _FIXTURE_PATH.exists():
+    from tei_annotator.schemas.registry import get_schema_config
+
+    path = _corpus_path(schema_id, corpus_label)
+    if not path.exists():
         raise RuntimeError(
-            f"Evaluation fixture not found at {_FIXTURE_PATH}. "
-            "Make sure the tests/fixtures/ directory is present in the deployment."
+            f"Corpus file not found: {path}\n"
+            "Make sure data/corpus/ is present in the deployment, "
+            "or set CORPUS_DIR in .env."
         )
-    tree = etree.parse(str(_FIXTURE_PATH))
-    return tree.findall(".//tei:bibl", _TEI_NS)
+    cfg = get_schema_config(schema_id)
+    root_elem = cfg["root_element"]
+    child_elem = cfg["child_element"]
+
+    tree = etree.parse(str(path))
+    _NS = "http://www.tei-c.org/ns/1.0"
+    containers = (
+        tree.findall(f".//{{{_NS}}}{root_elem}") or
+        tree.findall(f".//{root_elem}")
+    )
+    children = []
+    for c in containers:
+        children.extend(
+            c.findall(f"{{{_NS}}}{child_elem}") or c.findall(child_elem)
+        )
+    return children
 
 
 def _run_evaluation(
     provider_id: str | None,
     model_id: str | None,
+    schema_id: str = "bibl",
+    corpus_label: str = "default",
     n: int = 5,
     seed: int | None = None,
     premium_key: str | None = None,
     batch_size: int = 1,
 ) -> dict:
-    """Sample n bibl elements, annotate each, compute metrics vs gold standard.
-
-    Pass *seed* to reproduce the same sample across multiple calls (e.g. when
-    comparing several models on identical inputs).
-
-    Pass *batch_size* > 1 to annotate multiple records per LLM call, which
-    reduces latency at a potential quality cost.
-    """
+    """Sample n elements, annotate each, compute metrics vs gold standard."""
     from lxml import etree
 
     from tei_annotator.evaluation.extractor import extract_spans
@@ -233,25 +269,31 @@ def _run_evaluation(
         capability=EndpointCapability.TEXT_GENERATION,
         call_fn=call_fn,
     )
-    schema = build_schema("bibl")
-    bibls = _load_fixture_bibls()
+    schema = build_schema(schema_id)
+    elements = _load_corpus_elements(schema_id, corpus_label)
     rng = random.Random(seed)
-    samples = rng.sample(bibls, min(n, len(bibls)))
+    samples = rng.sample(elements, min(n, len(elements)))
 
     _parser = etree.XMLParser(recover=True)
+    child_tag = schema_id.split("-")[0] if "-" in schema_id else schema_id
+
+    def _wrap_tag(schema_id: str) -> str:
+        from tei_annotator.schemas.registry import get_schema_config
+        return get_schema_config(schema_id)["child_element"]
+
+    _child_elem = _wrap_tag(schema_id)
 
     def _evaluate_one(el):
         plain_text, gold_spans = extract_spans(el)
         ann_result = annotate(plain_text, schema, endpoint, gliner_model=_GLINER_MODEL)
         try:
-            pred_el = etree.fromstring(f"<bibl>{ann_result.xml}</bibl>".encode(), _parser)
+            pred_el = etree.fromstring(f"<{_child_elem}>{ann_result.xml}</{_child_elem}>".encode(), _parser)
         except Exception:
-            pred_el = etree.Element("bibl")
+            pred_el = etree.Element(_child_elem)
         _, pred_spans = extract_spans(pred_el)
         return plain_text, compute_metrics(gold_spans, pred_spans, mode=MatchMode.TEXT)
 
     def _evaluate_batch_group(batch_els):
-        """Annotate a batch of elements in a single LLM call."""
         plain_texts = []
         gold_spans_list = []
         for el in batch_els:
@@ -260,7 +302,6 @@ def _run_evaluation(
             gold_spans_list.append(gs)
 
         if any(_BATCH_SEP in t for t in plain_texts):
-            # Fallback to individual calls if separator appears in text
             return [_evaluate_one(el) for el in batch_els]
 
         combined = _BATCH_SEP.join(plain_texts)
@@ -268,7 +309,6 @@ def _run_evaluation(
         pieces = ann_result.xml.split(_BATCH_SEP)
 
         if len(pieces) != len(batch_els):
-            # Fallback: return empty predictions for all in this batch
             return [
                 (pt, compute_metrics(gs, [], mode=MatchMode.TEXT))
                 for pt, gs in zip(plain_texts, gold_spans_list)
@@ -277,9 +317,9 @@ def _run_evaluation(
         batch_results = []
         for piece, pt, gs in zip(pieces, plain_texts, gold_spans_list):
             try:
-                pred_el = etree.fromstring(f"<bibl>{piece}</bibl>".encode(), _parser)
+                pred_el = etree.fromstring(f"<{_child_elem}>{piece}</{_child_elem}>".encode(), _parser)
             except Exception:
-                pred_el = etree.Element("bibl")
+                pred_el = etree.Element(_child_elem)
             _, pred_spans = extract_spans(pred_el)
             batch_results.append((pt, compute_metrics(gs, pred_spans, mode=MatchMode.TEXT)))
         return batch_results
@@ -301,13 +341,14 @@ def _run_evaluation(
 
     elapsed = time.monotonic() - t0
     agg = aggregate(per_result)
-    # Include a display label combining provider+model for the UI
     connector = get_connector(provider_id) if provider_id else get_available_connectors()[0]
     resolved_model = model_id or connector.default_model
     return {
         "n_samples": len(samples),
         "provider": connector.id,
         "model": resolved_model,
+        "schema": schema_id,
+        "corpus": corpus_label,
         "sample_texts": sample_texts,
         "elapsed_seconds": round(elapsed, 1),
         "micro_precision": agg.micro_precision,
@@ -359,6 +400,8 @@ async def api_config(key: str | None = None):
 
     Pass *key* (the PREMIUM_TOKEN) to unlock premium models in the response.
     """
+    from tei_annotator.schemas.registry import get_schema_names
+
     premium = bool(_PREMIUM_TOKEN and key == _PREMIUM_TOKEN)
     providers = []
     for c in get_available_connectors():
@@ -375,19 +418,34 @@ async def api_config(key: str | None = None):
             "models": visible_models,
             "default_model": default_model,
         })
-    return {"providers": providers, "token": _API_KEY, "premium": premium}
+
+    schemas = []
+    for sid in get_schema_names():
+        labels = _list_corpus_labels(sid)
+        schemas.append({
+            "id": sid,
+            "default_corpus": labels[0] if labels else "default",
+            "corpora": labels,
+        })
+
+    return {"providers": providers, "schemas": schemas, "token": _API_KEY, "premium": premium}
 
 
 @app.get("/api/sample")
-async def sample_api(n: int = 5, _: None = Depends(_verify_token)):
+async def sample_api(
+    n: int = 5,
+    schema: str = "bibl",
+    corpus: str = "default",
+    _: None = Depends(_verify_token),
+):
     """
-    Return *n* random plain-text bibliographic entries from the test fixture.
+    Return *n* random plain-text entries from the selected corpus file.
     Useful for populating the evaluation textarea in the UI.
     """
     from tei_annotator.evaluation.extractor import extract_spans
 
-    bibls = _load_fixture_bibls()
-    samples = random.sample(bibls, min(n, len(bibls)))
+    elements = _load_corpus_elements(schema, corpus)
+    samples = random.sample(elements, min(n, len(elements)))
     return [{"text": extract_spans(el)[0]} for el in samples]
 
 
@@ -417,6 +475,7 @@ class AnnotateRequest(BaseModel):
     batch_size: int = 1
     provider: str | None = None
     model: str | None = None
+    schema_id: str | None = Field(None)
     tei_schema: SchemaInput | None = Field(None, alias="schema")
 
 
@@ -444,11 +503,13 @@ async def annotate_api(
     - **text**: single plain text to annotate (returns a single AnnotateResponse).
     - **texts**: list of plain texts to annotate (returns a list of AnnotateResponse).
     - **batch_size**: number of texts to send in a single LLM call when using *texts*
-      (default 1 — one call per text).  Values > 1 reduce latency at a potential
-      quality cost ("lost in the middle" effect for large batches).
+      (default 1 — one call per text).
     - **provider**: connector id (default: first available provider).
     - **model**: model ID for the provider (default: provider's default model).
-    - **schema**: TEI schema definition. Omit to use the built-in BLBL bibliographic schema.
+    - **schema_id**: registered schema name (e.g. ``"bibl"``, ``"bibl-reference-segmenter"``).
+      Takes precedence over inline ``schema``. Defaults to ``"bibl"`` when both are absent.
+    - **schema**: inline TEI schema definition (custom, not registered). Ignored when
+      ``schema_id`` is set.
     """
     import asyncio
 
@@ -461,7 +522,9 @@ async def annotate_api(
 
     call_fn = _resolve_call_fn(body.provider, body.model, premium_key=x_premium_key)
 
-    if body.tei_schema is not None:
+    if body.schema_id is not None:
+        schema = build_schema(body.schema_id)
+    elif body.tei_schema is not None:
         schema = _schema_from_dict(body.tei_schema.model_dump())
     else:
         schema = build_schema("bibl")
@@ -492,7 +555,7 @@ async def annotate_api(
             for xml in xml_list
         ]
 
-    # ── Single-text mode (backward compatible) ───────────────────────────────
+    # ── Single-text mode ─────────────────────────────────────────────────────
     try:
         t0 = time.monotonic()
         result = await asyncio.to_thread(
@@ -519,6 +582,8 @@ async def annotate_api(
 class EvaluateRequest(BaseModel):
     provider: str | None = None
     model: str | None = None
+    schema: str = "bibl"
+    corpus: str = "default"
     n: int = 5
     seed: int | None = None
     batch_size: int = 1
@@ -531,18 +596,26 @@ async def evaluate_api(
     x_premium_key: str | None = Header(None),
 ):
     """
-    Sample *n* bibliographic entries from the test fixture, annotate each with
+    Sample *n* entries from the selected corpus file, annotate each with
     the chosen model, and return precision/recall/F1 against the gold standard.
 
     - **provider**: connector id (default: first available provider).
     - **model**: model ID for the provider (default: provider's default model).
+    - **schema**: registered schema name (default: ``"bibl"``).
+    - **corpus**: corpus label, e.g. ``"default"`` or ``"hard-cases"`` (default: ``"default"``).
     - **n**: number of random samples (default: 5).
+    - **seed**: random seed for reproducible sampling.
+    - **batch_size**: records per LLM call (default: 1).
     """
     try:
         import asyncio
         return await asyncio.to_thread(
-            _run_evaluation, body.provider, body.model,
-            n=body.n, seed=body.seed, premium_key=x_premium_key,
+            _run_evaluation,
+            body.provider, body.model,
+            schema_id=body.schema,
+            corpus_label=body.corpus,
+            n=body.n, seed=body.seed,
+            premium_key=x_premium_key,
             batch_size=body.batch_size,
         )
     except HTTPException:
@@ -567,7 +640,6 @@ def _kill_previous() -> None:
     try:
         pid = int(_PID_FILE.read_text().strip())
         os.kill(pid, signal.SIGTERM)
-        # Give it a moment to release the port
         import time as _time
         _time.sleep(0.5)
     except (ProcessLookupError, ValueError):

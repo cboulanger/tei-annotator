@@ -56,6 +56,13 @@ def _extract_recursive(
         current += len(element.text)
 
     for child in element:
+        # Skip comments, processing instructions, and other non-element nodes
+        # (their .tag is a callable, not a string).
+        if not isinstance(child.tag, str):
+            if child.tail:
+                current += len(child.tail)
+            continue
+
         child_start = current
         # Recurse: sets current to the end of all content inside child
         current = _extract_recursive(child, spans, current)

@@ -69,7 +69,7 @@ from ..pipeline import annotate
 from .extractor import extract_spans
 from .metrics import EvaluationResult, MatchMode, aggregate, compute_metrics
 
-# TEI namespace used in documents like bibl-examples.tei.xml
+# TEI namespace used in documents like data/corpus/bibl.default.tei.xml
 _TEI_NS = "http://www.tei-c.org/ns/1.0"
 
 
@@ -183,7 +183,7 @@ def evaluate_file(
     Parameters
     ----------
     gold_xml_path :
-        Path to a TEI XML file (e.g. ``tests/fixtures/bibl-examples.tei.xml``).
+        Path to a TEI XML file (e.g. ``data/corpus/bibl.default.tei.xml``).
     schema :
         TEISchema to use for annotation.
     endpoint :

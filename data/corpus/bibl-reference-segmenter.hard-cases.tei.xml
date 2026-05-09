@@ -1,0 +1,264 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<TEI xmlns="http://www.tei-c.org/ns/1.0" xml:space="preserve">
+  <teiHeader>
+    <fileDesc xml:id="_bibl-reference-segmenter-hard-examples"/>
+  </teiHeader>
+  <text><listBibl>
+<!-- F1=0.865  source=10.19164__ijple.v6i1.1293.grobid.training.references.referenceSegmenter.tei.xml --><bibl><label>13</label> North Carolina Bar Association Young Lawyers Division Civic Education Outreach Committee. (2015).<lb/> 
+Life &amp; Laws 101: Citizenship Rights and Responsibilities Over 18.<lb/> http://web.archive.org/web/20150923012636/http://www.ncbar.org/media/95451/Life-and-Laws-101.pdf </bibl>
+<bibl><label>15</label> Ward, L. (2015). Practical life lessons [PowerPoint slides]. 
+SlideShare.<lb/> https://www.slideshare.net/practicallifelessons<lb/> </bibl>
+<!-- ↓ missed by model --><bibl><label>16</label> Green, T. (2014, February 28). Who Is Dana Snay? College Student's Facebook Bragging Costs Father<lb/> $80,000 
+Lawsuit Settlement. International Business Times. https://archive.ph/6Q0ga<lb/> </bibl>
+<bibl><label>17</label> Phipps, C. (2015, April 28). Who were the eight people executed by Indonesia? The Guardian.<lb/> https://perma.cc/9PPQ-E5M6<lb/> </bibl>
+<bibl><label>18</label> Ward, L. (2015, October 24). A Sea of Information: Navigating the Waters of Digital Citizenship, Rights, and<lb/> Responsibilities [Conference Session]. 
+North Carolina School Library Media Association Conference,<lb/> Winston-Salem, NC, United States.<lb/> </bibl>
+</listBibl>
+
+        <listBibl>
+<!-- F1=0.865  source=10.19164__ijple.v6i1.1293.grobid.training.references.referenceSegmenter.tei.xml --><bibl><label>16</label> Green, T. (2014, February 28). Who Is Dana Snay? College Student's Facebook Bragging Costs Father<lb/> $80,000 
+Lawsuit Settlement. International Business Times. https://archive.ph/6Q0ga<lb/> </bibl>
+<bibl><label>17</label> Phipps, C. (2015, April 28). Who were the eight people executed by Indonesia? The Guardian.<lb/> https://perma.cc/9PPQ-E5M6<lb/> </bibl>
+<!-- ↓ missed by model --><bibl><label>18</label> Ward, L. (2015, October 24). A Sea of Information: Navigating the Waters of Digital Citizenship, Rights, and<lb/> Responsibilities [Conference Session]. 
+North Carolina School Library Media Association Conference,<lb/> Winston-Salem, NC, United States.<lb/> </bibl>
+<bibl><label>19</label> Ward, L. (2016). Five Key Points for Developing an Informative "Know Your Rights" Seminar. American<lb/> Bar Association Young Lawyers Division Public Education Committee Newsletter, 2(1). https://perma.cc/9STS-<lb/>2VTU<lb/> </bibl>
+<bibl><label>20</label> National Street Law Institute &amp; District of Columbia Project on Community Legal Assistance, supra<lb/> note 9.<lb/> </bibl>
+</listBibl>
+
+        <listBibl>
+<!-- F1=0.865  source=10.19164__ijple.v6i1.1293.grobid.training.references.referenceSegmenter.tei.xml --><bibl><label>17</label> Phipps, C. (2015, April 28). Who were the eight people executed by Indonesia? The Guardian.<lb/> https://perma.cc/9PPQ-E5M6<lb/> </bibl>
+<bibl><label>18</label> Ward, L. (2015, October 24). A Sea of Information: Navigating the Waters of Digital Citizenship, Rights, and<lb/> Responsibilities [Conference Session]. 
+North Carolina School Library Media Association Conference,<lb/> Winston-Salem, NC, United States.<lb/> </bibl>
+<!-- ↓ missed by model --><bibl><label>19</label> Ward, L. (2016). Five Key Points for Developing an Informative "Know Your Rights" Seminar. American<lb/> Bar Association Young Lawyers Division Public Education Committee Newsletter, 2(1). https://perma.cc/9STS-<lb/>2VTU<lb/> </bibl>
+<bibl><label>20</label> National Street Law Institute &amp; District of Columbia Project on Community Legal Assistance, supra<lb/> note 9.<lb/> </bibl>
+<bibl><label>21</label> Stamper, N. (2006). Breaking rank: a top cop's exposé of the dark side of American policing. Nation Books.<lb/> </bibl>
+</listBibl>
+
+        <listBibl>
+<!-- F1=0.857  source=10.19164__ijple.v6i1.1293.grobid.training.references.referenceSegmenter.tei.xml --><bibl><label>23</label> Ward, L. (2015). Practical life lessons [PowerPoint slides]. 
+SlideShare.<lb/> https://www.slideshare.net/practicallifelessons<lb/> </bibl>
+<bibl><label>24</label> Cassidy, W. &amp; Yates, R. (2005). Once upon a crime: using stories, simulations, and mock trials to explore<lb/> justice and citizenship in elementary school. Detselig Enterprises.<lb/> </bibl>
+<!-- ↓ missed by model --><bibl><label>25</label> Johnson, G. &amp; Hunter, R. (1985). Law-Related Education as a Delinquency Prevention Strategy: A Three-Year<lb/> Evaluation of the Impact of LRE on Students (adapted from Law-Related Education Project Final Report, Phase II,<lb/> year 3) (Publication Number 99991). National Criminal Justice Reference Service. https://perma.cc/9ZYA-<lb/>EZQA<lb/> </bibl>
+<bibl><label>26</label> 
+Feinstein &amp; Wood, supra note 3.<lb/> </bibl>
+<bibl><label>27</label> Law-Related Education Act of 1978, Pub. L. No. 95-561, 92 Stat. 2216 (1978) repealed by 20 U.S.C. §<lb/> 3863(a)(1) (1982). https://perma.cc/G75R-AFKD and https://perma.cc/8TAQ-M8R6<lb/> </bibl>
+</listBibl>
+
+        <listBibl>
+<!-- F1=0.857  source=10.19164__ijple.v6i1.1293.grobid.training.references.referenceSegmenter.tei.xml --><bibl><label>25</label> Johnson, G. &amp; Hunter, R. (1985). Law-Related Education as a Delinquency Prevention Strategy: A Three-Year<lb/> Evaluation of the Impact of LRE on Students (adapted from Law-Related Education Project Final Report, Phase II,<lb/> year 3) (Publication Number 99991). National Criminal Justice Reference Service. https://perma.cc/9ZYA-<lb/>EZQA<lb/> </bibl>
+<bibl><label>26</label> 
+Feinstein &amp; Wood, supra note 3.<lb/> </bibl>
+<!-- ↓ missed by model --><bibl><label>27</label> Law-Related Education Act of 1978, Pub. L. No. 95-561, 92 Stat. 2216 (1978) repealed by 20 U.S.C. §<lb/> 3863(a)(1) (1982). https://perma.cc/G75R-AFKD and https://perma.cc/8TAQ-M8R6<lb/> </bibl>
+<bibl><label> 28</label> Id.<lb/></bibl>
+<bibl><label> 29</label> Id.<lb/></bibl>
+</listBibl>
+
+        <listBibl>
+<!-- F1=0.857  source=10.19164__ijple.v6i1.1293.grobid.training.references.referenceSegmenter.tei.xml --><bibl><label> 28</label> Id.<lb/></bibl>
+<bibl><label> 29</label> Id.<lb/></bibl>
+<!-- ↓ missed by model --><bibl><label> 30</label> United States Bureau of Labor Statistics. (n.d.). CPI Inflation Calculator.<lb/> https://www.bls.gov/data/inflation_calculator.htm<lb/> </bibl>
+<bibl><label>31</label> Law-Related Education Act of 1978, Pub. L. No. 95-561, 92 Stat. 2216 (1978) repealed by 20 U.S.C. §<lb/> 3863(a)(1) (1982). https://perma.cc/G75R-AFKD and https://perma.cc/8TAQ-M8R6<lb/> </bibl>
+<bibl><label>32</label> ALA. CODE 1975 § 16-1-24.2(a)(2).<lb/> http://alisondb.legislature.state.al.us/alison/CodeOfAlabama/1975/Coatoc.htm<lb/> </bibl>
+</listBibl>
+
+        <listBibl>
+<!-- F1=0.944  source=10.19164__ijple.v6i1.1293.grobid.training.references.referenceSegmenter.tei.xml --><bibl><label>100</label> N.C. Gen. Stat. § 115C-81.45(d)(Applicable to students entering the ninth grade in the 2021-2022<lb/> school year)(1). https://perma.cc/A3XG-EZJM<lb/> </bibl>
+<bibl><label>101</label> H.R. 588, Sess. 2011 Gen. Assemb., N.C. SESS. LAWS. https://perma.cc/X8MH-QYWS<lb/> </bibl>
+<!-- ↓ missed by model --><bibl><label>102</label> Ladner, D. &amp; Myslinski, D.J. (2014). Report Card on American Education: Ranking State K-12 Performance,<lb/> Progress and Reform at 113. </bibl>
+<bibl>American Legislative Exchange Council. https://perma.cc/SQ5H-3JW6 and<lb/> American Legislative Exchange Council. (2013). Founding Principles Act.<lb/> https://web.archive.org/web/20130501114024/http://www.alec.org/model-legislation/founding-principles-<lb/>act/<lb/> </bibl>
+<bibl><label>103 </label>
+American Legislative Exchange Council. (n.d.). ABOUT ALEC. https://perma.cc/NT7T-67VD<lb/> </bibl>
+</listBibl>
+
+        <listBibl>
+<!-- F1=0.944  source=10.19164__ijple.v6i1.1293.grobid.training.references.referenceSegmenter.tei.xml --><bibl><label>101</label> H.R. 588, Sess. 2011 Gen. Assemb., N.C. SESS. LAWS. https://perma.cc/X8MH-QYWS<lb/> </bibl>
+<bibl><label>102</label> Ladner, D. &amp; Myslinski, D.J. (2014). Report Card on American Education: Ranking State K-12 Performance,<lb/> Progress and Reform at 113. </bibl>
+<!-- ↓ missed by model --><bibl>American Legislative Exchange Council. https://perma.cc/SQ5H-3JW6 and<lb/> American Legislative Exchange Council. (2013). Founding Principles Act.<lb/> https://web.archive.org/web/20130501114024/http://www.alec.org/model-legislation/founding-principles-<lb/>act/<lb/> </bibl>
+<bibl><label>103 </label>
+American Legislative Exchange Council. (n.d.). ABOUT ALEC. https://perma.cc/NT7T-67VD<lb/> </bibl>
+<bibl><label>104</label> H.R. 588, Sess. 2011 Gen. Assemb., N.C. SESS. LAWS. https://perma.cc/X8MH-QYWS<lb/> </bibl>
+</listBibl>
+
+        <listBibl>
+<!-- F1=0.833  source=10.19164__ijple.v6i1.1293.grobid.training.references.referenceSegmenter.tei.xml --><bibl><label>104</label> H.R. 588, Sess. 2011 Gen. Assemb., N.C. SESS. LAWS. https://perma.cc/X8MH-QYWS<lb/> </bibl>
+<bibl><label>105</label> The Center for Media and Democracy's PRWatch. (n.d.). What we do. https://perma.cc/6ZBL-KQ7N<lb/> </bibl>
+<!-- ↓ missed by model --><bibl><label>106</label> "This model legislation would require the teaching of a semester-long course on the "philosophical<lb/> understandings" of America's founders, as incorporated in the Declaration of Independence, the United<lb/> States Constitution, and the Federalist Papers. There are, in fact, many scholarly differences of opinion<lb/> about what weight to accord writings of individuals involved in the drafting and ratification of the<lb/> Constitution. For example, a controversial Bush Administration attorney embraced what he called a<lb/> "Hamiltonian" view of virtually unlimited presidential power as a rationale for presidential violation of<lb/> laws barring torture and warrantless wiretapping. However, Hamilton's views of king-like presidential<lb/> power were not shared by other leading founding fathers or by the citizens in the states that ratified the<lb/> Constitution and who insisted upon the addition of an explicit Bill of Rights to guard against claims of<lb/> virtually unlimited governmental power to search and seize people and compel them to be witnesses<lb/> against themselves." The Center for Media and Democracy. ALEC EXPOSED. (2017). Founding Principles<lb/> Act Exposed. https://perma.cc/6ZQD-2PTZ<lb/> </bibl>
+<bibl><label>107</label> The Center for Media and Democracy. SOURCEWATCH. (2021). Bill of Rights Institute.<lb/> https://perma.cc/2LZW-V9EE<lb/> </bibl>
+<bibl><label>108</label> American Legislative Exchange Council. (2013). Founding Principles Act.<lb/> https://web.archive.org/web/20130501114024/http://www.alec.org/model-legislation/founding-principles-<lb/>act/<lb/> </bibl>
+</listBibl>
+
+        <listBibl>
+<!-- F1=0.833  source=10.19164__ijple.v6i1.1293.grobid.training.references.referenceSegmenter.tei.xml --><bibl><label>105</label> The Center for Media and Democracy's PRWatch. (n.d.). What we do. https://perma.cc/6ZBL-KQ7N<lb/> </bibl>
+<bibl><label>106</label> "This model legislation would require the teaching of a semester-long course on the "philosophical<lb/> understandings" of America's founders, as incorporated in the Declaration of Independence, the United<lb/> States Constitution, and the Federalist Papers. There are, in fact, many scholarly differences of opinion<lb/> about what weight to accord writings of individuals involved in the drafting and ratification of the<lb/> Constitution. For example, a controversial Bush Administration attorney embraced what he called a<lb/> "Hamiltonian" view of virtually unlimited presidential power as a rationale for presidential violation of<lb/> laws barring torture and warrantless wiretapping. However, Hamilton's views of king-like presidential<lb/> power were not shared by other leading founding fathers or by the citizens in the states that ratified the<lb/> Constitution and who insisted upon the addition of an explicit Bill of Rights to guard against claims of<lb/> virtually unlimited governmental power to search and seize people and compel them to be witnesses<lb/> against themselves." The Center for Media and Democracy. ALEC EXPOSED. (2017). Founding Principles<lb/> Act Exposed. https://perma.cc/6ZQD-2PTZ<lb/> </bibl>
+<!-- ↓ missed by model --><bibl><label>107</label> The Center for Media and Democracy. SOURCEWATCH. (2021). Bill of Rights Institute.<lb/> https://perma.cc/2LZW-V9EE<lb/> </bibl>
+<bibl><label>108</label> American Legislative Exchange Council. (2013). Founding Principles Act.<lb/> https://web.archive.org/web/20130501114024/http://www.alec.org/model-legislation/founding-principles-<lb/>act/<lb/> </bibl>
+<bibl><label>109 </label>
+American Legislative Exchange Council. (n.d.). Civic Literacy Act. https://perma.cc/F56U-VESA<lb/> </bibl>
+</listBibl>
+
+        <listBibl>
+<!-- F1=0.833  source=10.19164__ijple.v6i1.1293.grobid.training.references.referenceSegmenter.tei.xml --><bibl><label>106</label> "This model legislation would require the teaching of a semester-long course on the "philosophical<lb/> understandings" of America's founders, as incorporated in the Declaration of Independence, the United<lb/> States Constitution, and the Federalist Papers. There are, in fact, many scholarly differences of opinion<lb/> about what weight to accord writings of individuals involved in the drafting and ratification of the<lb/> Constitution. For example, a controversial Bush Administration attorney embraced what he called a<lb/> "Hamiltonian" view of virtually unlimited presidential power as a rationale for presidential violation of<lb/> laws barring torture and warrantless wiretapping. However, Hamilton's views of king-like presidential<lb/> power were not shared by other leading founding fathers or by the citizens in the states that ratified the<lb/> Constitution and who insisted upon the addition of an explicit Bill of Rights to guard against claims of<lb/> virtually unlimited governmental power to search and seize people and compel them to be witnesses<lb/> against themselves." The Center for Media and Democracy. ALEC EXPOSED. (2017). Founding Principles<lb/> Act Exposed. https://perma.cc/6ZQD-2PTZ<lb/> </bibl>
+<bibl><label>107</label> The Center for Media and Democracy. SOURCEWATCH. (2021). Bill of Rights Institute.<lb/> https://perma.cc/2LZW-V9EE<lb/> </bibl>
+<!-- ↓ missed by model --><bibl><label>108</label> American Legislative Exchange Council. (2013). Founding Principles Act.<lb/> https://web.archive.org/web/20130501114024/http://www.alec.org/model-legislation/founding-principles-<lb/>act/<lb/> </bibl>
+<bibl><label>109 </label>
+American Legislative Exchange Council. (n.d.). Civic Literacy Act. https://perma.cc/F56U-VESA<lb/> </bibl>
+<bibl><label>110</label> GA. CODE ANN. § 20-2-142.1 (2022). (Lexis Advance).<lb/> </bibl>
+</listBibl>
+
+        <listBibl>
+<!-- F1=0.944  source=10.19164__ijple.v6i1.1293.grobid.training.references.referenceSegmenter.tei.xml --><bibl><label>118</label> Boston Public Library. (2020). Know Your Rights Workshop for Teens. https://perma.cc/ZKR8-4N6N<lb/> </bibl>
+<bibl><label>119</label> City of Glendale. (2019). Teen Workshop (Ages 13-17): Know Your Rights. https://perma.cc/P8M2-FRFQ<lb/> </bibl>
+<!-- ↓ missed by model --><bibl><label>120</label> The write-around activity allows students time to think about answers to a question and make<lb/> connections between concepts before engaging in a large group discussion. There are many variations of<lb/> write-arounds (which are discussed in the book entitled The Best-Kept Teaching Secret: How Written<lb/> Conversations Engage Kids, Activate Learning, and Grow Fluent Writers, K-12. Daniels, H. &amp; Daniels, E.<lb/> (2013).</bibl>
+<bibl> The best-kept teaching secret: how written conversations engage kids, activate learning, and grow fluent<lb/> writers, K-12. Corwin.<lb/> </bibl>
+<bibl><label>121</label> "When two or more circuits in the United States court of appeals reach opposite interpretations of<lb/> federal law. This is sometimes a reason for the Supreme Court to grant certiorari." Wex. (n.d.). Circuit<lb/> Split. https://perma.cc/693C-WC7Q<lb/> </bibl>
+</listBibl>
+
+        <listBibl>
+<!-- F1=0.944  source=10.19164__ijple.v6i1.1293.grobid.training.references.referenceSegmenter.tei.xml --><bibl><label>120</label> The write-around activity allows students time to think about answers to a question and make<lb/> connections between concepts before engaging in a large group discussion. There are many variations of<lb/> write-arounds (which are discussed in the book entitled The Best-Kept Teaching Secret: How Written<lb/> Conversations Engage Kids, Activate Learning, and Grow Fluent Writers, K-12. Daniels, H. &amp; Daniels, E.<lb/> (2013).</bibl>
+<bibl> The best-kept teaching secret: how written conversations engage kids, activate learning, and grow fluent<lb/> writers, K-12. Corwin.<lb/> </bibl>
+<!-- ↓ missed by model --><bibl><label>121</label> "When two or more circuits in the United States court of appeals reach opposite interpretations of<lb/> federal law. This is sometimes a reason for the Supreme Court to grant certiorari." Wex. (n.d.). Circuit<lb/> Split. https://perma.cc/693C-WC7Q<lb/> </bibl>
+<bibl><label>122</label> Ward, L. (2018, June 28). Where There's Smoke…A Write-Around Activity Regarding the Circuit Split Over<lb/> Marijuana-Based Car Searches [Conference Session]. 2018 Cornell Law Institute for High School Students,<lb/> Ithaca, NY, United States.<lb/> </bibl>
+<bibl><label>123</label> Id.</bibl>
+</listBibl>
+
+        <listBibl>
+<!-- F1=0.857  source=10.19164__ijple.v6i1.1293.grobid.training.references.referenceSegmenter.tei.xml --><bibl> The best-kept teaching secret: how written conversations engage kids, activate learning, and grow fluent<lb/> writers, K-12. Corwin.<lb/> </bibl>
+<bibl><label>121</label> "When two or more circuits in the United States court of appeals reach opposite interpretations of<lb/> federal law. This is sometimes a reason for the Supreme Court to grant certiorari." Wex. (n.d.). Circuit<lb/> Split. https://perma.cc/693C-WC7Q<lb/> </bibl>
+<!-- ↓ missed by model --><bibl><label>122</label> Ward, L. (2018, June 28). Where There's Smoke…A Write-Around Activity Regarding the Circuit Split Over<lb/> Marijuana-Based Car Searches [Conference Session]. 2018 Cornell Law Institute for High School Students,<lb/> Ithaca, NY, United States.<lb/> </bibl>
+<bibl><label>123</label> Id.</bibl>
+</listBibl>
+
+        <listBibl>
+<!-- F1=0.741  source=10.19164__ijple.v6i1.1295.grobid.training.references.referenceSegmenter.tei.xml --><bibl><label>3</label> Mike Hough and Elizabeth A. Stanko 'Designing Degree-Level Courses for Police Recruits in England and Wales: Some<lb/> Issues and Challenges' [2005] Policing, 14(1): 31-42.<lb/> </bibl>
+<!-- ↓ missed by model --><bibl>For history see M Mahruf C Shohel and others, 'Police Education in the United Kingdom: Challenges and Future<lb/> Directions.' In: Nugmanova, M., Mikkola, H., Rozanov, A., and Komleva, V. (eds) Education, Human Rights and Peace in<lb/> Sustainable Development. Intech Open, 2020.<lb/> </bibl>
+<bibl><label>4</label> Peter Neyroud, Review of Police Leadership and Training (2011). London: Home Office, at 129.<lb/> </bibl>
+<bibl><label>5</label> Ibid.<lb/> </bibl>
+</listBibl>
+
+        <listBibl>
+<!-- F1=0.741  source=10.19164__ijple.v6i1.1295.grobid.training.references.referenceSegmenter.tei.xml --><bibl><label>4</label> Peter Neyroud, Review of Police Leadership and Training (2011). London: Home Office, at 129.<lb/> </bibl>
+<bibl><label>5</label> Ibid.<lb/> </bibl>
+<!-- ↓ missed by model --><bibl><label>6</label> See Pauline Ramshaw and Sarah Soppitt, 'Educating the recruited and recruiting the educated: Can the new<lb/> Police Education Qualifications Framework in England and Wales succeed where others have faltered.' [2018]<lb/> Police Science &amp; Management, 20(4): 243-250;</bibl>
+<bibl> Jyoti Belur and others, 'A Systematic Review of Police<lb/> Recruit Training Programmes' [2019] Policing 14(1): 76-90.<lb/> </bibl>
+<bibl><label>7</label> Katie Strudwick 'Learning through practice: Collaborative policing partnerships in teaching in higher<lb/> education' [2021] The Police Journal: Theory, Practice and Principles, 94(1) 58-74;</bibl>
+</listBibl>
+
+        <listBibl>
+<!-- F1=0.741  source=10.19164__ijple.v6i1.1295.grobid.training.references.referenceSegmenter.tei.xml --><bibl><label>5</label> Ibid.<lb/> </bibl>
+<bibl><label>6</label> See Pauline Ramshaw and Sarah Soppitt, 'Educating the recruited and recruiting the educated: Can the new<lb/> Police Education Qualifications Framework in England and Wales succeed where others have faltered.' [2018]<lb/> Police Science &amp; Management, 20(4): 243-250;</bibl>
+<!-- ↓ missed by model --><bibl> Jyoti Belur and others, 'A Systematic Review of Police<lb/> Recruit Training Programmes' [2019] Policing 14(1): 76-90.<lb/> </bibl>
+<bibl><label>7</label> Katie Strudwick 'Learning through practice: Collaborative policing partnerships in teaching in higher<lb/> education' [2021] The Police Journal: Theory, Practice and Principles, 94(1) 58-74;</bibl>
+<bibl>Colin Rogers and James<lb/> Gravelle, 'Implementing a police foundation degree -insights from South Wales'[2019] Policing: A Journal of<lb/> Policy and Practice, 1-13<lb/> </bibl>
+</listBibl>
+
+        <listBibl>
+<!-- F1=0.710  source=10.19164__ijple.v6i1.1295.grobid.training.references.referenceSegmenter.tei.xml --><bibl><label>8</label> College of Policing. Policing Education Qualifications Framework, Initial Entry Routes into Policing: Police<lb/> Constable. A Strategic Overview [2018] at 13 cited in Belur and others (n. 4) at 77.<lb/> </bibl>
+<bibl><label>9</label> Cheryl Simmill-Binning and Jude Towers, Education, training and learning in policing in England and Wales'<lb/> [2017] N8 Policing Research Partnership. Lancaster: Lancaster University.<lb/> </bibl>
+<!-- ↓ missed by model --><bibl><label>10</label> John McCanney, Julie Taylor and Elizabeth Bates, Elizabeth 'Is there 'discretionary space' in rank-based<lb/> police constabularies for graduate constables to think critically and make autonomous decisions?' [2021] The<lb/> Police Journal: Theory, Practice and Principles 1-18, at 2.<lb/> </bibl>
+<bibl><label>11</label> Ibid.<lb/> </bibl>
+<bibl><label>12</label> Almuth McDowall and Jennifer Brown, 'Do Good Cops Need a Degree? Introduction to the Special Issue on<lb/> Developing and Evaluating Graduate Policing Training' [2020] Policing: A Journal of Policy and Practice<lb/> 14(1): 1-8; </bibl>
+</listBibl>
+
+        <listBibl>
+<!-- F1=0.710  source=10.19164__ijple.v6i1.1295.grobid.training.references.referenceSegmenter.tei.xml --><bibl><label>10</label> John McCanney, Julie Taylor and Elizabeth Bates, Elizabeth 'Is there 'discretionary space' in rank-based<lb/> police constabularies for graduate constables to think critically and make autonomous decisions?' [2021] The<lb/> Police Journal: Theory, Practice and Principles 1-18, at 2.<lb/> </bibl>
+<bibl><label>11</label> Ibid.<lb/> </bibl>
+<!-- ↓ missed by model --><bibl><label>12</label> Almuth McDowall and Jennifer Brown, 'Do Good Cops Need a Degree? Introduction to the Special Issue on<lb/> Developing and Evaluating Graduate Policing Training' [2020] Policing: A Journal of Policy and Practice<lb/> 14(1): 1-8; </bibl>
+<bibl>Jennifer Brown, 'Do graduate police officers make a difference to policing? Results of an integrative<lb/> literature review. [2018] Policing 14(1):9-30.<lb/> </bibl>
+<bibl>It should be noted that whether university degrees do in fact harness critical thinking skills is contested. See, for<lb/> example, Brett A. Brosseit ,'Charting the Course: An Empirically Based Theory of the Development of Critical<lb/> Thinking in Law Students' [2016] Albany Law Journal of Science &amp; Technology 26(2): 143-171<lb/> </bibl>
+</listBibl>
+
+        <listBibl>
+<!-- F1=0.710  source=10.19164__ijple.v6i1.1295.grobid.training.references.referenceSegmenter.tei.xml --><bibl><label>11</label> Ibid.<lb/> </bibl>
+<bibl><label>12</label> Almuth McDowall and Jennifer Brown, 'Do Good Cops Need a Degree? Introduction to the Special Issue on<lb/> Developing and Evaluating Graduate Policing Training' [2020] Policing: A Journal of Policy and Practice<lb/> 14(1): 1-8; </bibl>
+<!-- ↓ missed by model --><bibl>Jennifer Brown, 'Do graduate police officers make a difference to policing? Results of an integrative<lb/> literature review. [2018] Policing 14(1):9-30.<lb/> </bibl>
+<bibl>It should be noted that whether university degrees do in fact harness critical thinking skills is contested. See, for<lb/> example, Brett A. Brosseit ,'Charting the Course: An Empirically Based Theory of the Development of Critical<lb/> Thinking in Law Students' [2016] Albany Law Journal of Science &amp; Technology 26(2): 143-171<lb/> </bibl>
+<bibl><label>13</label> See McCanney and others (n. 8)<lb/> </bibl>
+</listBibl>
+
+        <listBibl>
+<!-- F1=0.944  source=10.19164__ijple.v6i1.1295.grobid.training.references.referenceSegmenter.tei.xml --><bibl> The Police National<lb/> Legal Database (PNLD -Document Portal -Home)<lb/> </bibl>
+<bibl><label>24</label> See Jessica Brown, 'Police powers: an introduction' [17 June 2020], House of Commons Library Briefing<lb/> Paper, Number 8637.<lb/> </bibl>
+<!-- ↓ missed by model --><bibl><label>25</label> College of Policing. Code of Ethics A Code of Practice for the Principles and Standards of Professional<lb/> Behaviour for the Policing Profession of England and Wales (2014), code_of_ethics.pdf (paas-s3-broker-prod-<lb/>lon-6453d964-1d1a-432a-9260-5e0ba7d2fc51.s3.eu-west-2.amazonaws.com)<lb/> </bibl>
+<bibl><label>26</label> College of Policing, APP content, College of Policing APP<lb/> </bibl>
+<bibl><label>27</label> College of Policing, Stop and search, Stop and search (college.police.uk)<lb/> </bibl>
+</listBibl>
+
+        <listBibl>
+<!-- F1=0.944  source=10.19164__ijple.v6i1.1295.grobid.training.references.referenceSegmenter.tei.xml --><bibl><label>31</label> Ibid., 81.<lb/> </bibl>
+<bibl><label>32</label> Ibid., chapter 3.<lb/> </bibl>
+<!-- ↓ missed by model --><bibl><label>33</label> The items referred to reflect the scope of material which is covered under Part 1 PACE, 1984. Other pieces of<lb/> legislation are concerned with different items. As examples, Section 23 Misuse of Drugs Act, 1971-search for<lb/> controlled drugs; </bibl>
+<bibl>Section 47 Firearms Act, 1968-possession of a firearm; </bibl>
+<bibl>and Section 36 Psychoactive<lb/> Substances Act, 2016-Legal Highs.<lb/> </bibl>
+</listBibl>
+
+        <listBibl>
+<!-- F1=0.774  source=10.19164__ijple.v6i1.1295.grobid.training.references.referenceSegmenter.tei.xml --><bibl><label>41</label> Mike Rowe, Policing, Race and Racism (Cullompton: Willan, 2004), at 95-96.<lb/> </bibl>
+<bibl><label>42</label> See Home Office. Police and Criminal Evidence Act 1984 (PACE) Codes of Practice, Police and Criminal<lb/> Evidence Act 1984 (PACE) codes of practice -GOV.UK (www.gov.uk), PACE Code A, 2015: para. 1.4<lb/> </bibl>
+<!-- ↓ missed by model --><bibl><label>43</label> Although research suggests that the impact on deterrence is weak (see Matteo Tiratelli, Paul Quinton, Ben<lb/> Bradford. Does stop and search deter crime? Evidence from ten years of londonwide data' [2018] British journal<lb/> of criminology, 58(5): 1212-1231<lb/> </bibl>
+<bibl><label>44</label> Ibid., Tiratelli and others<lb/> </bibl>
+<bibl><label>45</label> William Macpherson, The Stephen Lawrence inquiry [1999]. London: The Stationary Office, Cm 4262.<lb/> </bibl>
+</listBibl>
+
+        <listBibl>
+<!-- F1=0.774  source=10.19164__ijple.v6i1.1295.grobid.training.references.referenceSegmenter.tei.xml --><bibl><label>43</label> Although research suggests that the impact on deterrence is weak (see Matteo Tiratelli, Paul Quinton, Ben<lb/> Bradford. Does stop and search deter crime? Evidence from ten years of londonwide data' [2018] British journal<lb/> of criminology, 58(5): 1212-1231<lb/> </bibl>
+<bibl><label>44</label> Ibid., Tiratelli and others<lb/> </bibl>
+<!-- ↓ missed by model --><bibl><label>45</label> William Macpherson, The Stephen Lawrence inquiry [1999]. London: The Stationary Office, Cm 4262.<lb/> </bibl>
+<bibl><label>46</label> Equality and Human Rights Commission, Stop and think: A critical review of the use of stop and search<lb/> powers in England and Wales [2010].<lb/> </bibl>
+<bibl><label>47</label> HMIC, Stop and Search Powers: Are the police using them effectively and fairly? [2013],<lb/> https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/522804/hmic-<lb/>report-stop-and-search-powers-jan16.pdf; </bibl>
+</listBibl>
+
+        <listBibl>
+<!-- F1=0.774  source=10.19164__ijple.v6i1.1295.grobid.training.references.referenceSegmenter.tei.xml --><bibl><label>44</label> Ibid., Tiratelli and others<lb/> </bibl>
+<bibl><label>45</label> William Macpherson, The Stephen Lawrence inquiry [1999]. London: The Stationary Office, Cm 4262.<lb/> </bibl>
+<!-- ↓ missed by model --><bibl><label>46</label> Equality and Human Rights Commission, Stop and think: A critical review of the use of stop and search<lb/> powers in England and Wales [2010].<lb/> </bibl>
+<bibl><label>47</label> HMIC, Stop and Search Powers: Are the police using them effectively and fairly? [2013],<lb/> https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/522804/hmic-<lb/>report-stop-and-search-powers-jan16.pdf; </bibl>
+<bibl>HMIC (2016), Stop and search powers 2: are the police using them<lb/> effectively and fairly?, stop-and-search-powers-2.pdf (justiceinspectorates.gov.uk)<lb/> </bibl>
+</listBibl>
+
+        <listBibl>
+<!-- F1=0.848  source=10.25364__01.10_x3A_2023.2.1.grobid.training.references.referenceSegmenter.tei.xml --><bibl><label>8</label> International Labour Organization (ILO), Declaration of Philadelphia (1944). </bibl>
+<bibl>Viele Institutionen des mehrfach segmen-<lb/>tierten Arbeitsmarktes bekräftigen dies, zB, indem sie Aus-, Weiter-und Fortbildungen sowie angemessene Beschäfti-<lb/>gungs-und Arbeitsbedingungen fördern, Berufsberatung bieten und Arbeit vermitteln, den Bestand von Arbeitsverhält-<lb/>nissen wahren, bei Erwerbslosigkeit mit Lohnersatzleistungen unterstützen oder bei der beruflichen Rehabilitation be-<lb/>hilflich sind. Vgl die (revidierte) Europäische Sozialcharta (ESC) des Europarates, SEV Nr 163. </bibl>
+<!-- ↓ missed by model --><bibl>Langzeiterwerbslosigkeit,<lb/> die bei alldem zu verhindern gesucht wird, geht nicht nur mit finanziellen Sorgen einher, sondern beeinträchtigt auch<lb/> die zeitliche Strukturierung des Alltags sowie die gesellschaftliche Einbindung und schürt uU Selbstzweifel, die durch<lb/> soziale Stigmatisierung verstärkt werden. Vgl Wacker, Arbeitslosigkeit, Soziale und psychische Folgen (1983); </bibl>
+<bibl>Büssing,<lb/> Arbeitslosigkeit, Differenzielle Folgen aus psychologischer Sicht, Arbeit 2/1993/1, 5-19.<lb/> </bibl>
+<bibl><label>9</label> Mit der marktgeregelten Geldwirtschaft ist einsichtig geworden, dass Arbeit als Gut knapp ist, weil dafür bezahlt wer-<lb/>den muss. Vgl Luhmann, Die Wirtschaft der Gesellschaft 9 (2019), 217.<lb/> </bibl>
+</listBibl>
+
+        <listBibl>
+<!-- F1=0.848  source=10.25364__01.10_x3A_2023.2.1.grobid.training.references.referenceSegmenter.tei.xml --><bibl>Büssing,<lb/> Arbeitslosigkeit, Differenzielle Folgen aus psychologischer Sicht, Arbeit 2/1993/1, 5-19.<lb/> </bibl>
+<bibl><label>9</label> Mit der marktgeregelten Geldwirtschaft ist einsichtig geworden, dass Arbeit als Gut knapp ist, weil dafür bezahlt wer-<lb/>den muss. Vgl Luhmann, Die Wirtschaft der Gesellschaft 9 (2019), 217.<lb/> </bibl>
+<!-- ↓ missed by model --><bibl><label>10</label> Polanyi, The Great Transformation (2001), 71 ff, hat Boden, Arbeit und Geld als fiktive Waren bezeichnet, weil es sich<lb/> dabei nicht um Güter handelt, die eigens für den Handel (Markt) produziert worden sind.<lb/> </bibl>
+<bibl><label>11</label> Vgl Art 1 der Charta der Grundrechte der Europäischen Union (GRC) und Art 1 Abs 1 des Grundgesetzes für die Bun-<lb/>desrepublik Deutschland (GG).<lb/> </bibl>
+<bibl><label> 12</label> Eine Norm ist dann rechtsverbindlich, dh sie gilt dann als Rechtsnorm, wenn sie ein Verhalten, das durch einen<lb/> Rechtsakt für gewollt erklärt worden ist, als gesollt setzt. Ein Rechtsakt ist eine Satzung oder Gewohnheit, die nach der<lb/> Verfassung als rechtsetzender Willensakt zu deuten ist. Die Frage nach der Effektivität und der Legitimität der Verfas-<lb/>sung ist für die Rechtsdogmatik eine Vorfrage, weshalb sie die Maßgeblichkeit der Verfassung, auf deren Grundlage Ge-<lb/>richte urteilen, voraussetzt. Diese Voraussetzung heißt ‚Grundnorm', weil sie die Rechtsgeltung der maßgebenden<lb/> Norm begründet. Mit der Grundnorm markiert die Rechtsdogmatik lediglich den Ort des Abbruchs ihres Verfahrens der<lb/> Begründung von Verbindlichkeit und hält derart das als Rechtsordnung normativ geschlossen operierende Rechtssys-<lb/>tem kognitiv offen. Im Wort ‚Sollen' drängt sich unentwegt eine Nachfrage nach der Fairness des Verfahrens zur Recht-<lb/>setzung und der Verantwortbarkeit von Sanktionen bei Zuwiderhandeln 
+        auf. Vgl Pačić, Bereinigte Rechtslogik (2022),<lb/> 58, 61-64.<lb/>
+        </bibl>
+</listBibl>
+
+        <listBibl>
+<!-- F1=0.848  source=10.25364__01.10_x3A_2023.2.1.grobid.training.references.referenceSegmenter.tei.xml --><bibl><label>10</label> Polanyi, The Great Transformation (2001), 71 ff, hat Boden, Arbeit und Geld als fiktive Waren bezeichnet, weil es sich<lb/> dabei nicht um Güter handelt, die eigens für den Handel (Markt) produziert worden sind.<lb/> </bibl>
+<bibl><label>11</label> Vgl Art 1 der Charta der Grundrechte der Europäischen Union (GRC) und Art 1 Abs 1 des Grundgesetzes für die Bun-<lb/>desrepublik Deutschland (GG).<lb/> </bibl>
+<!-- ↓ missed by model --><bibl><label> 12</label> Eine Norm ist dann rechtsverbindlich, dh sie gilt dann als Rechtsnorm, wenn sie ein Verhalten, das durch einen<lb/> Rechtsakt für gewollt erklärt worden ist, als gesollt setzt. Ein Rechtsakt ist eine Satzung oder Gewohnheit, die nach der<lb/> Verfassung als rechtsetzender Willensakt zu deuten ist. Die Frage nach der Effektivität und der Legitimität der Verfas-<lb/>sung ist für die Rechtsdogmatik eine Vorfrage, weshalb sie die Maßgeblichkeit der Verfassung, auf deren Grundlage Ge-<lb/>richte urteilen, voraussetzt. Diese Voraussetzung heißt ‚Grundnorm', weil sie die Rechtsgeltung der maßgebenden<lb/> Norm begründet. Mit der Grundnorm markiert die Rechtsdogmatik lediglich den Ort des Abbruchs ihres Verfahrens der<lb/> Begründung von Verbindlichkeit und hält derart das als Rechtsordnung normativ geschlossen operierende Rechtssys-<lb/>tem kognitiv offen. Im Wort ‚Sollen' drängt sich unentwegt eine Nachfrage nach der Fairness des Verfahrens zur Recht-<lb/>setzung und der Verantwortbarkeit von Sanktionen bei Zuwiderhandeln 
+        auf. Vgl Pačić, Bereinigte Rechtslogik (2022),<lb/> 58, 61-64.<lb/>
+        </bibl>
+<bibl><label>13</label> Vgl Pačić, Das Recht der Arbeit in Europa (2020), 87;</bibl>
+<bibl>Gruber-Risak, Where do weg o from here? Trends in der Arbeits-<lb/>welt und ihre Auswirkungen auf das Arbeitsrecht, DRdA 2022, 105 (106).<lb/> </bibl>
+</listBibl>
+
+        <listBibl>
+<!-- F1=0.769  source=10.25364__01.10_x3A_2023.2.1.grobid.training.references.referenceSegmenter.tei.xml --><bibl>Nieto,<lb/> Spanisches Arbeitsrecht in den Jahren 2010 bis 2012, EuZA 2012, 570;</bibl>
+<bibl> Temming, Griechisches und deutsches Arbeits-<lb/>und Sozialrecht im Vergleich, EuZA 2014, 51 (57).<lb/> </bibl>
+<!-- ↓ missed by model --><bibl><label>24</label> Nach 
+§ 6 ArbVG gibt es insofern einen Vorrang der freiwilligen Berufsvereinigung, als bei Abschluss eines Kollektivver-<lb/>trages vonseiten einer solchen Vereinigung die gesetzliche Interessenvertretung hinsichtlich der Mitglieder der Berufs-<lb/>vereinigung für die Dauer der Geltung und für den Geltungsbereich des von der Berufsvereinigung abgeschlossenen<lb/> Kollektivvertrages die Kollektivvertragsfähigkeit verliert. Vgl Winkler, Relations between Employees and Employers at a<lb/> National Level, in Tomandl/Winkler, A Brief Outline of Austrian Labor Law (1990), 14 ff; </bibl>
+<bibl>Obwaller, Kollektivvertrag und<lb/> Betriebsvereinbarung, JAP 2022/2023, 121.<lb/> </bibl>
+<bibl><label>25</label> Vgl Rebhahn, Die Zukunft der Kollektivautonomie in Europa, EuZA 2010, 62 (70).<lb/> </bibl>
+</listBibl>
+
+        <listBibl>
+<!-- F1=0.769  source=10.25364__01.10_x3A_2023.2.1.grobid.training.references.referenceSegmenter.tei.xml --><bibl><label>26</label> Vgl Brameshuber, Das Recht auf Streik nach Art. 28 Grundrechtecharta, Ein Beitrag zur inhaltlichen Verortung, EuZA<lb/> 2016, 46. </bibl>
+<bibl>Die Verbreitung von Tarifverträgen wird von der Möglichkeit zum Arbeitskampf beeinflusst: Die mittel-und<lb/> osteuropäischen Staaten zeigen zwar, dass die weitreichende Zulässigkeit von Streiks nicht unbedingt zu hoher Tarifbin-<lb/>dung führt, doch kann die Ausgestaltung des Arbeitskampfes die Verhandlungsebene beeinflussen; so stützt die Offen-<lb/>heit für Boykottmaßnahmen in Schweden und Dänemark die Verbandstarife. Vgl Rebhahn, NZA-Beilage 2011, 65. </bibl>
+<!-- ↓ missed by model --><bibl>In der<lb/> Lit wird zT befunden, dass die Konfrontation innerhalb der Arbeitsbeziehungen im Rückgang begriffen sei, ohne, dass<lb/> die Kooperation ansteige, was auf schwindenden Einfluss der Gewerkschaften oder auf vermehrte gesetzgeberische<lb/> Aktivität hinweisen könnte. Vgl Rebhahn, EuZA 2010, 80; </bibl>
+<bibl>Le Friant, Kollektivautonomie als Aufgabe und Herausforde-<lb/>rung, EuZA 2010, 23.<lb/> </bibl>
+<bibl><label>27</label> Das Recht zu streiken wird in romanischen Ländern -im Gegensatz insb zu Schweden, aber zB auch zur Schweiz -<lb/>mehr als Recht der einzelnen Arbeitnehmenden, weniger als Gewerkschaftsrecht betrachtet; die Rechtmäßigkeit des<lb/> Streiks hängt dort weniger als in Deutschland von der Ausrichtung auf den Tarifvertrag ab und es darf auch während der<lb/> Laufzeit des Tarifvertrags gestreikt werden, dagegen besteht in Deutschland, so wie zB in Schweden, eine Friedens-<lb/>pflicht. Vgl Rebhahn, ZEuP 2002, 438; </bibl>
+</listBibl>
+
+        </text>
+</TEI>

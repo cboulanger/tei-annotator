@@ -17,18 +17,18 @@ Usage:
     uv run scripts/evaluate_llm.py [--schema SCHEMA] [--gold-file PATH]
         [--max-items N] [--match-mode text|exact|overlap] [--gliner-model MODEL]
 
-    # blbl schema (default) against its auto-detected fixture file:
-    uv run scripts/evaluate_llm.py --schema blbl
+    # bibl schema (default) against its auto-detected corpus file:
+    uv run scripts/evaluate_llm.py --schema bibl
 
-    # referenceSegmenter schema against its auto-detected fixture file:
+    # referenceSegmenter schema against its auto-detected corpus file:
     uv run scripts/evaluate_llm.py --schema bibl-reference-segmenter
 
     # any schema with an explicit gold file:
-    uv run scripts/evaluate_llm.py --schema blbl --gold-file path/to/file.xml
+    uv run scripts/evaluate_llm.py --schema bibl --gold-file path/to/file.xml
 
 Gold-file auto-detection rule:
-    tests/fixtures/<schema-name>-examples.tei.xml
-    e.g. schema "bibl" → tests/fixtures/bibl-examples.tei.xml
+    data/corpus/<schema-name>.default.tei.xml
+    e.g. schema "bibl" → data/corpus/bibl.default.tei.xml
 
 API keys are read from .env in the project root.
 """
@@ -50,7 +50,7 @@ from tei_annotator.schemas.registry import build_schema, get_schema_config, get_
 # ---------------------------------------------------------------------------
 
 _REPO = Path(__file__).parent.parent
-_FIXTURES = _REPO / "tests" / "fixtures"
+_CORPUS = _REPO / "data" / "corpus"
 
 # Separator used to join multiple records into a single annotate() call.
 # Triple-pipe never appears in bibliographic text; inject_xml() never modifies
@@ -61,8 +61,8 @@ load_dotenv(_REPO / ".env")
 
 
 def _default_gold_file(schema_name: str) -> Path:
-    """Deterministic gold-file path: tests/fixtures/<schema-name>-examples.tei.xml."""
-    return _FIXTURES / f"{schema_name}-examples.tei.xml"
+    """Default corpus path: data/corpus/<schema-name>.default.tei.xml."""
+    return _CORPUS / f"{schema_name}.default.tei.xml"
 
 
 # ---------------------------------------------------------------------------
@@ -438,7 +438,7 @@ def _parse_args() -> argparse.Namespace:
         default="bibl",
         help=(
             "Annotation schema to evaluate.  The gold file is auto-detected as "
-            "tests/fixtures/<schema>-examples.tei.xml unless --gold-file is given."
+            "data/corpus/<schema>.default.tei.xml unless --gold-file is given."
         ),
     )
     p.add_argument(
