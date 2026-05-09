@@ -7,6 +7,11 @@ from typing import Callable
 from ..models.spans import SpanDescriptor
 
 
+def _strip_think_blocks(text: str) -> str:
+    """Remove <think>…</think> chain-of-thought blocks emitted by reasoning models."""
+    return re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
+
+
 def _strip_fences(text: str) -> str:
     """Remove markdown code fences, even if preceded by explanatory text."""
     text = text.strip()
@@ -60,7 +65,7 @@ def parse_response(
       retries once with a self-correction prompt that includes the bad response.
     - Raises ValueError if parsing fails after the retry (or if no retry is configured).
     """
-    cleaned = _strip_fences(response)
+    cleaned = _strip_fences(_strip_think_blocks(response))
     raw = _parse_json_list(cleaned)
     if raw is not None:
         return _dicts_to_spans(raw)

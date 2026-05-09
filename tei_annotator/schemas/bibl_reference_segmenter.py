@@ -44,20 +44,35 @@ def build_bibl_reference_segmenter_schema():
             "by a new author name in inverted/capitalised form — produces MULTIPLE 'bibl' "
             "spans, one per cited work.  Only the FIRST 'bibl' in the footnote carries the "
             "'label'; the remaining 'bibl' spans for the same footnote have no label.  "
-            "Example — '1. See Doe (2020), 45; Foo (2021), 123; Bar (2022), 78.' → "
-            "three 'bibl' spans, label '1' only on the first.  "
+            "Step-by-step example — '1. Robins (2013); Boss (2000); Kovras (2017).' → "
+            "bibl span 1: text = '1. Robins (2013);', with a nested 'label' span text = '1'; "
+            "bibl span 2: text = 'Boss (2000);' (no label); "
+            "bibl span 3: text = 'Kovras (2017).' (no label).  "
+            "ALL THREE cited works need their own 'bibl' span.  After wrapping the first bibl, "
+            "continue wrapping every remaining citation into its own bibl.  "
+            "Do NOT stop after 1 or 2 — wrap every cited work until the end of the footnote.  "
             "EXCEPTION: a semicolon that appears *within* an author list (e.g. 'COIMBRA, "
             "Marcelo; Manzi, Vanessa') is NOT a reference separator — it separates "
             "co-authors of the same work.",
+            "CRITICAL: When a footnote entry begins with a label, ALL text in that entry — "
+            "from the label to the end of the last citation — must be divided into one or more "
+            "'bibl' spans.  No text between the opening label and the end of the footnote entry "
+            "may be left as bare unwrapped text.  If the text immediately following the label "
+            "is commentary rather than a formal citation, wrap it in a 'bibl' span anyway.",
             "If a reference begins with a numeric or alphanumeric label (footnote number, "
-            "endnote number, or reference key), emit a 'label' span covering ONLY that "
-            "label, as the very first span inside the enclosing 'bibl' span.  "
-            "The separator that follows the label (a period, dash, space, or closing "
-            "bracket) is NOT part of the label.",
+            "endnote number, or reference key), emit a 'label' span covering that label — "
+            "including any brackets, parentheses, or trailing period that are part of the "
+            "label format — as the very first span inside the enclosing 'bibl' span.  "
+            "The whitespace or dash that separates the label from the first author is NOT "
+            "part of the label span.",
             "Labels take many forms: plain integers ('1', '42'), integers with a trailing "
             "period ('1.', '42.'), integers in square brackets ('[1]', '[42]'), integers in "
             "parentheses ('(1)', '(42)'), letter-number codes ('5a'), or special characters "
-            "such as '*'.  ALL of these forms are valid labels and must be tagged.",
+            "such as '*'.  ALL of these forms are valid labels and must be tagged.  "
+            "CRITICAL: The label span text MUST include ALL formatting characters — the "
+            "trailing period, enclosing brackets, and enclosing parentheses belong INSIDE "
+            "the span text.  Examples: '17.' → span text '17.' (NOT '17'); "
+            "'[1]' → span text '[1]' (NOT '1'); '(1)' → span text '(1)' (NOT '1').",
             "A single cited work that spans multiple OCR line breaks is still ONE 'bibl' "
             "span.  Do NOT split a single citation at a line break.",
             "Include the trailing separator of each reference (the semicolon or period that "
@@ -67,7 +82,15 @@ def build_bibl_reference_segmenter_schema():
             "reader to it — e.g. 'See', 'Cf.', 'Nesse sentido:', 'For a contrary view, "
             "see', 'siehe auch', 'ver também' — belongs INSIDE that reference's 'bibl' "
             "span.  When such commentary introduces two or more consecutive references, "
-            "attach it to the immediately following reference.",
+            "attach it to the immediately following reference.  "
+            "When 'see also', 'cf.', or similar phrases appear in the MIDDLE of a "
+            "multi-citation footnote (after one or more bibls containing a COMPLETE formal "
+            "citation — i.e. author + title + publication — have already been emitted), "
+            "they introduce a new 'bibl' span.  "
+            "EXCEPTION: if the immediately preceding text is pure commentary that contains "
+            "NO complete formal citation (e.g. a sentence mentioning an author in passing "
+            "without a title or publisher), do NOT start a new bibl at 'see' or 'see also' — "
+            "include that phrase and what follows in the same bibl as the commentary.",
             "Standalone commentary that does not directly refer to any specific reference, "
             "or that bridges two different references, should be included in the span that "
             "covers the FOLLOWING reference.",
@@ -103,11 +126,16 @@ def build_bibl_reference_segmenter_schema():
                     "'who first demonstrated that …') must also be included.  A 'bibl' span "
                     "must contain at minimum one verifiable bibliographic item — an author "
                     "name, title, publication, or a short-form citation ('Ibid.', 'op. cit.', "
-                    "a bare page number following a prior citation).  Sources without named "
-                    "authors, such as websites (title + URL), are also valid bibliographic "
-                    "references.  Standalone commentary that refers to no specific reference "
+                    "a bare page number following a prior citation).  An in-text mention of an "
+                    "author by name (e.g. 'resembles Louis Althusser's distinction') qualifies "
+                    "as a bibliographic item even without a publication title or date — wrap "
+                    "such commentary in a 'bibl' span, especially when it follows a label or "
+                    "precedes a formal citation.  Sources without named authors, such as "
+                    "websites (title + URL), are also valid bibliographic references.  Standalone commentary that refers to no specific reference "
                     "or bridges two references should be included in the FOLLOWING reference's "
-                    "span.  May optionally begin with one nested 'label' span."
+                    "span.  If the reference begins with a numeric or alphanumeric label, the "
+                    "very first nested span inside this 'bibl' span MUST be a 'label' span — "
+                    "never emit the label text as bare untagged text."
                 ),
                 allowed_children=["label"],
                 attributes=[],
@@ -123,7 +151,11 @@ def build_bibl_reference_segmenter_schema():
                     "the label (period, dash, space, closing bracket) is NOT part of the "
                     "label.  A label is always a number or short code at the very beginning "
                     "of a reference — never a word, name, or sentence fragment.  "
-                    "A 'label' span MUST always appear inside a 'bibl' span."
+                    "CRITICAL: A 'label' span MUST ALWAYS appear as the first nested span "
+                    "inside a 'bibl' span.  Emitting a label as bare text outside a 'bibl' "
+                    "span is always wrong.  If you are unsure how to divide the content "
+                    "following the label, wrap the label AND all remaining text of that "
+                    "footnote entry in a single 'bibl' span."
                 ),
                 allowed_children=[],
                 attributes=[],

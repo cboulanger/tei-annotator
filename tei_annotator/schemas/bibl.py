@@ -22,12 +22,18 @@ def build_bibl_schema():
             "Never emit 'surname', 'forename', or 'orgName' without a corresponding enclosing "
             "'author' or 'editor' span.",
             "When an organisation acts as author or editor, emit BOTH an 'orgName' span AND an "
-            "enclosing 'author' (or 'editor') span. The 'author'/'editor' span MUST enclose the "
-            "'orgName' span — NEVER put an 'author' or 'editor' span inside an 'orgName' span.",
+            "enclosing 'author' (or 'editor') span — the 'author'/'editor' span's text encloses "
+            "the 'orgName' span's text, not the reverse. "
+            "Example: if 'Acme Research Group' is the author, emit an 'author' span covering "
+            "'Acme Research Group' AND an 'orgName' span also covering 'Acme Research Group'. "
+            "NEVER emit an 'orgName' span whose text covers the full organisation-as-author text "
+            "without a corresponding 'author' span also covering that text.",
             "CRITICAL: All name parts for all contiguous authors MUST always be placed inside a "
             "SINGLE 'author' (or 'editor') span — conjunctions ('and', '&', 'et') and commas "
             "between names do NOT create separate spans. Emit a new 'author' span only when "
-            "the authors are separated by a title, date, or other non-name bibliographic field.",
+            "the authors are separated by a title, date, or other non-name bibliographic field. "
+            "Example: 'Russell, D.A. and Michael Winterbottom' is ONE author span — "
+            "the conjunction 'and' is NOT a separator between two author spans.",
             "In a bibliography, a dash or underscore may stand for a repeated author or editor "
             "name — tag it as 'author' or 'editor' accordingly.",
             "CRITICAL: When a parenthesised location appears immediately after a title "
@@ -122,6 +128,9 @@ def build_bibl_schema():
                 tag="date",
                 description=(
                     "Publication date or year. "
+                    "Emit a span covering ONLY the year or date string itself — do NOT include "
+                    "surrounding punctuation (parentheses, brackets, commas) inside the span. "
+                    "Example: '(2013)' → span text is '2013', not '(2013)'. "
                     "When two dates appear in sequence — e.g. '1989 [1972]' (reprint year and "
                     "original year) — emit a SEPARATE 'date' span for each individual date."
                 ),
