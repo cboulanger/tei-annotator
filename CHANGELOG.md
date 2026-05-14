@@ -1,3 +1,10 @@
+# [1.2.0](https://github.com/cboulanger/tei-annotator/compare/v1.1.1...v1.2.0) (2026-05-14)
+
+
+### Features
+
+* add warning for span resolver context mismatches ([11fc401](https://github.com/cboulanger/tei-annotator/commit/11fc401dd0ca172306b94f7a0743d22d5a63f5a3)), closes [#2](https://github.com/cboulanger/tei-annotator/issues/2)
+
 ## [1.1.1](https://github.com/cboulanger/tei-annotator/compare/v1.1.0...v1.1.1) (2026-05-14)
 
 
