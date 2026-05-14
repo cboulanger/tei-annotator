@@ -2,7 +2,7 @@
 tei-annotator: TEI XML annotation library using a two-stage LLM pipeline.
 """
 
-__version__ = "0.1.0"
+__version__ = "1.0.0"
 
 from .inference.endpoint import EndpointCapability, EndpointConfig
 from .models.schema import TEIAttribute, TEIElement, TEISchema
