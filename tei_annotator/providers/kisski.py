@@ -21,6 +21,7 @@ class KISSKIConnector(Connector):
 
     def __init__(self) -> None:
         self._cached_models: list[str] | None = None
+        self._cached_model_data: list[dict] = []
 
     @property
     def id(self) -> str:
@@ -57,13 +58,41 @@ class KISSKIConnector(Connector):
         try:
             with urllib.request.urlopen(req, timeout=10) as resp:
                 data = json.loads(resp.read())
-            return [
-                m["id"] for m in data.get("data", [])
+            entries = [
+                m for m in data.get("data", [])
                 if "text" in m.get("input", [])
                 and any(o in m.get("output", []) for o in ("text", "thought"))
             ]
+            self._cached_model_data = entries
+            return [m["id"] for m in entries]
         except Exception:
+            self._cached_model_data = []
             return list(self._FALLBACK_MODELS)
+
+    def get_model_statuses(self) -> list[dict]:
+        """Return demand metrics from /models response or KISSKI_STATUS_URL if configured."""
+        if self._cached_models is None:
+            self.models()
+        statuses = [
+            {"model": m["id"], "demand": int(m.get("demand", 0)), "status": m.get("status", "")}
+            for m in self._cached_model_data
+            if "demand" in m
+        ]
+        if statuses:
+            return statuses
+        status_url = os.environ.get("KISSKI_STATUS_URL")
+        if not status_url:
+            return []
+        api_key = os.environ.get("KISSKI_API_KEY", "")
+        try:
+            return _post_json(
+                status_url,
+                {},
+                {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                timeout=5,
+            ).get("data", [])
+        except Exception:
+            return []
 
     def make_call_fn(self, model_id: str, timeout: int = 300) -> Callable[[str], str]:
         api_key = os.environ.get("KISSKI_API_KEY", "")

@@ -7,7 +7,7 @@ To add a new provider:
   3. Append an instance to :data:`_ALL_CONNECTORS` below.
 """
 
-from .base import Connector, _RateLimiter, _post_json
+from .base import Connector, ProviderTimeoutError, _RateLimiter, _post_json
 from .claude import ClaudeConnector
 from .gemini import GeminiConnector
 from .hf import HFConnector

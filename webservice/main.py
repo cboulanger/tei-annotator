@@ -17,8 +17,18 @@ from __future__ import annotations
 
 import os
 import random
+import sys
 import time
 from pathlib import Path
+
+
+_DEBUG = os.environ.get("TEI_DEBUG_HTTP", "") == "1"
+
+
+def _dbg(msg: str) -> None:
+    """Diagnostic print, gated by TEI_DEBUG_HTTP=1."""
+    if _DEBUG:
+        print(f"[DBG {time.strftime('%H:%M:%S')}] {msg}", file=sys.stderr, flush=True)
 
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, Header, HTTPException
@@ -32,6 +42,15 @@ from pydantic import BaseModel, Field
 load_dotenv(Path(__file__).parent / ".env")
 
 _GLINER_MODEL = os.environ.get("GLINER_MODEL", "") or None
+
+# Hard total-elapsed cap for a single LLM HTTP call (seconds).  Must be
+# lower than the browser's fetch timeout (~300 s in Firefox) so the
+# server can return a clean 504 before the browser gives up with a
+# NetworkError.  Override with LLM_TIMEOUT in .env.
+try:
+    _LLM_TIMEOUT = int(os.environ.get("LLM_TIMEOUT", "120"))
+except ValueError:
+    _LLM_TIMEOUT = 120
 
 # Optional shared-secret bearer token for general API access.
 # Set API_KEY in .env to enable enforcement; leave empty for open access.
@@ -58,6 +77,7 @@ async def _verify_token(authorization: str | None = Header(None)) -> None:
         raise HTTPException(status_code=401, detail="Missing or invalid API key.")
 
 from connectors import get_available_connectors, get_connector  # noqa: E402
+from tei_annotator.providers import ProviderTimeoutError  # noqa: E402
 
 # Separator used to join/split multiple texts in a single LLM call.
 # Must not appear in any real bibliographic text.
@@ -98,9 +118,11 @@ def _corpus_path(schema_id: str, label: str) -> Path:
 def _resolve_call_fn(
     provider_id: str | None,
     model_id: str | None,
-    timeout: int = 300,
+    timeout: int | None = None,
     premium_key: str | None = None,
 ):
+    if timeout is None:
+        timeout = _LLM_TIMEOUT
     connectors = get_available_connectors()
     if not connectors:
         raise HTTPException(status_code=503, detail="No providers configured. Set at least one API key.")
@@ -324,16 +346,37 @@ def _run_evaluation(
             batch_results.append((pt, compute_metrics(gs, pred_spans, mode=MatchMode.TEXT)))
         return batch_results
 
-    from concurrent.futures import ThreadPoolExecutor
+    from concurrent.futures import ThreadPoolExecutor, as_completed
     t0 = time.monotonic()
 
+    def _drain(pool: ThreadPoolExecutor, futures: dict) -> list:
+        """Collect futures in submission order; on the first ProviderTimeoutError,
+        shut the pool down without waiting so the request handler can return 504
+        before Firefox gives up on the in-flight fetch."""
+        ordered: list = [None] * len(futures)
+        try:
+            for fut in as_completed(futures):
+                ordered[futures[fut]] = fut.result()
+        except ProviderTimeoutError:
+            pool.shutdown(wait=False, cancel_futures=True)
+            raise
+        return ordered
+
     if batch_size <= 1:
-        with ThreadPoolExecutor(max_workers=min(len(samples), 8)) as pool:
-            results = list(pool.map(_evaluate_one, samples))
+        pool = ThreadPoolExecutor(max_workers=min(len(samples), 8))
+        try:
+            futures = {pool.submit(_evaluate_one, s): i for i, s in enumerate(samples)}
+            results = _drain(pool, futures)
+        finally:
+            pool.shutdown(wait=False)
     else:
         batches = [samples[i : i + batch_size] for i in range(0, len(samples), batch_size)]
-        with ThreadPoolExecutor(max_workers=min(len(batches), 8)) as pool:
-            batch_results = list(pool.map(_evaluate_batch_group, batches))
+        pool = ThreadPoolExecutor(max_workers=min(len(batches), 8))
+        try:
+            futures = {pool.submit(_evaluate_batch_group, b): i for i, b in enumerate(batches)}
+            batch_results = _drain(pool, futures)
+        finally:
+            pool.shutdown(wait=False)
         results = [item for group in batch_results for item in group]
 
     sample_texts = [r[0] for r in results]
@@ -449,6 +492,29 @@ async def sample_api(
     return [{"text": extract_spans(el)[0]} for el in samples]
 
 
+class ModelStatusEntry(BaseModel):
+    provider: str
+    model: str
+    demand: int
+    status: str
+
+
+class ModelsStatusResponse(BaseModel):
+    models: list[ModelStatusEntry]
+
+
+@app.get("/api/models/status", response_model=ModelsStatusResponse)
+async def models_status_api():
+    """Return per-model demand metrics for all available providers that expose them."""
+    from tei_annotator.providers import get_available_connectors
+
+    result = []
+    for connector in get_available_connectors():
+        for s in connector.get_model_statuses():
+            result.append(ModelStatusEntry(provider=connector.id, **s))
+    return ModelsStatusResponse(models=result)
+
+
 class AttributeSchema(BaseModel):
     name: str
     description: str = ""
@@ -520,7 +586,13 @@ async def annotate_api(
     if body.text is None and body.texts is None:
         raise HTTPException(status_code=422, detail="Provide either 'text' or 'texts'.")
 
+    _dbg(
+        f"annotate_api ENTER provider={body.provider!r} model={body.model!r} "
+        f"schema_id={body.schema_id!r} text_len={len(body.text) if body.text else 0} "
+        f"batch={len(body.texts) if body.texts else 0}"
+    )
     call_fn = _resolve_call_fn(body.provider, body.model, premium_key=x_premium_key)
+    _dbg(f"annotate_api resolved call_fn={getattr(call_fn, '__name__', call_fn)!r}")
 
     if body.schema_id is not None:
         schema = build_schema(body.schema_id)
@@ -547,6 +619,14 @@ async def annotate_api(
                 body.batch_size,
             )
             elapsed = round(time.monotonic() - t0, 1)
+        except ProviderTimeoutError as exc:
+            raise HTTPException(
+                status_code=504,
+                detail=(
+                    f"Model {body.model or '(default)'} did not respond within "
+                    f"{exc.timeout:.0f}s — try another model."
+                ),
+            ) from exc
         except Exception as exc:
             raise HTTPException(status_code=500, detail=str(exc)) from exc
 
@@ -558,6 +638,7 @@ async def annotate_api(
     # ── Single-text mode ─────────────────────────────────────────────────────
     try:
         t0 = time.monotonic()
+        _dbg("annotate_api -> annotate() dispatching to thread")
         result = await asyncio.to_thread(
             annotate,
             text=body.text,
@@ -566,7 +647,21 @@ async def annotate_api(
             gliner_model=_GLINER_MODEL,
         )
         elapsed = time.monotonic() - t0
+        _dbg(f"annotate_api annotate() returned in {elapsed:.1f}s "
+             f"xml_len={len(result.xml) if getattr(result, 'xml', None) else 0}")
+    except ProviderTimeoutError as exc:
+        _dbg(f"annotate_api TIMEOUT after {exc.elapsed:.1f}s (limit={exc.timeout:.0f}s)")
+        raise HTTPException(
+            status_code=504,
+            detail=(
+                f"Model {body.model or '(default)'} did not respond within "
+                f"{exc.timeout:.0f}s — try another model."
+            ),
+        ) from exc
     except Exception as exc:
+        import traceback
+        _dbg(f"annotate_api annotate() RAISED: {type(exc).__name__}: {exc}")
+        _dbg(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     try:
@@ -578,7 +673,11 @@ async def annotate_api(
                 for s in result.fuzzy_spans
             ],
         )
+        _dbg(f"annotate_api EXIT OK ({elapsed:.1f}s)")
     except Exception as exc:
+        import traceback
+        _dbg(f"annotate_api response build RAISED: {type(exc).__name__}: {exc}")
+        _dbg(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     return response
@@ -625,6 +724,14 @@ async def evaluate_api(
         )
     except HTTPException:
         raise
+    except ProviderTimeoutError as exc:
+        raise HTTPException(
+            status_code=504,
+            detail=(
+                f"Model {body.model or '(default)'} did not respond within "
+                f"{exc.timeout:.0f}s — try another model."
+            ),
+        ) from exc
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
@@ -667,7 +774,17 @@ if __name__ == "__main__":
     try:
         host = os.environ.get("HOST", "0.0.0.0")
         port = int(os.environ.get("PORT", "8000"))
+        # Scope --reload watch to just the source dirs we actually edit;
+        # the default (CWD) sweeps in data/, .git/, etc. and the spurious
+        # restarts kill in-flight requests, surfacing in Firefox as
+        # "NetworkError when attempting to fetch resource."
+        reload_dirs = (
+            [str(Path(__file__).parent),
+             str(Path(__file__).parent.parent / "tei_annotator")]
+            if _args.reload else None
+        )
         uvicorn.run("main:app", host=host, port=port, reload=_args.reload,
+                    reload_dirs=reload_dirs,
                     timeout_keep_alive=120)
     finally:
         _PID_FILE.unlink(missing_ok=True)

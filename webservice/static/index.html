@@ -204,6 +204,10 @@
     <textarea id="text" placeholder="Paste a bibliographic entry here…"></textarea>
 
     <div class="eval-row">
+      <input type="checkbox" id="examples-mode">
+      <label for="examples-mode">Show examples</label>
+    </div>
+    <div class="eval-row">
       <input type="checkbox" id="eval-mode">
       <label for="eval-mode">Evaluate against gold-standard corpus</label>
     </div>
@@ -292,6 +296,7 @@
 
   <script>
     const textarea        = document.getElementById('text');
+    const examplesCheck   = document.getElementById('examples-mode');
     const evalCheck       = document.getElementById('eval-mode');
     const schemaSel       = document.getElementById('schema-sel');
     const corpusSel       = document.getElementById('corpus-sel');
@@ -467,7 +472,7 @@
     // Schema selector change
     schemaSel.addEventListener('change', async function () {
       updateCorpusOptions();
-      if (evalCheck.checked) {
+      if (evalCheck.checked || examplesCheck.checked) {
         clearResults();
         await reloadSamples();
       }
@@ -475,9 +480,33 @@
 
     // Corpus selector change
     corpusSel.addEventListener('change', async function () {
-      if (evalCheck.checked) {
+      if (evalCheck.checked || examplesCheck.checked) {
         clearResults();
         await reloadSamples();
+      }
+    });
+
+    // Examples mode checkbox
+    examplesCheck.addEventListener('change', async function () {
+      clearResults();
+      if (this.checked) {
+        evalCheck.checked = false;
+        textarea.readOnly = true;
+        textarea.removeAttribute('required');
+        submitBtn.textContent = 'Annotate';
+        submitBtn.disabled = false;
+        modelSelectWrap.hidden = false;
+        modelCompareWrap.hidden = true;
+        corpusSelectWrap.hidden = false;
+        nSamplesWrap.hidden = false;
+        batchSizeWrap.hidden = true;
+        updateCorpusOptions();
+        await reloadSamples();
+      } else {
+        textarea.readOnly = false;
+        textarea.value = '';
+        corpusSelectWrap.hidden = true;
+        nSamplesWrap.hidden = true;
       }
     });
 
@@ -485,6 +514,7 @@
     evalCheck.addEventListener('change', async function () {
       clearResults();
       if (this.checked) {
+        examplesCheck.checked = false;
         textarea.readOnly = true;
         textarea.removeAttribute('required');
         submitBtn.textContent = 'Evaluate';
@@ -515,11 +545,11 @@
       batchSizeInput.value = Math.min(n, 5);
     }
 
-    // Reload samples when n changes (only in eval mode)
+    // Reload samples when n changes (only in eval or examples mode)
     nSamplesInput.addEventListener('change', async function () {
-      if (!evalCheck.checked) return;
+      if (!evalCheck.checked && !examplesCheck.checked) return;
       const n = Math.max(1, parseInt(this.value, 10) || 5);
-      syncBatchSize(n);
+      if (evalCheck.checked) syncBatchSize(n);
       await reloadSamples();
     });
 
@@ -606,7 +636,7 @@
           const resp = await fetch('/api/evaluate', {
             method: 'POST',
             headers: authHeaders(),
-            body: JSON.stringify({ provider, model, schema: schemaId, corpus: corpusLabel, n, seed, batch_size: batchSize }),
+            body: JSON.stringify({ provider, model, schema_id: schemaId, corpus: corpusLabel, n, seed, batch_size: batchSize }),
             signal: currentController.signal,
           });
           const data = await resp.json();
@@ -735,6 +765,24 @@
           });
           modelSel.appendChild(grp);
         });
+
+        // Non-blocking: annotate model options with busy indicator
+        fetch('/api/models/status')
+          .then(r => r.ok ? r.json() : null)
+          .then(data => {
+            if (!data || !Array.isArray(data.models) || !data.models.length) return;
+            const GREEN  = '\uD83D\uDFE2'; // U+1F7E2 green circle
+            const YELLOW = '\uD83D\uDFE1'; // U+1F7E1 yellow circle
+            const RED    = '\uD83D\uDD34'; // U+1F534 red circle
+            for (const entry of data.models) {
+              const val = JSON.stringify({provider: entry.provider, model: entry.model});
+              const opt = modelSel.querySelector(`option[value=${JSON.stringify(val)}]`);
+              if (!opt) continue;
+              const dot = entry.demand === 0 ? GREEN : entry.demand <= 2 ? YELLOW : RED;
+              opt.textContent = dot + ' ' + entry.model;
+            }
+          })
+          .catch(() => {});
 
         if (cfg.premium) {
           const badge = document.createElement('span');
