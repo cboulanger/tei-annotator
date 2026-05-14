@@ -584,7 +584,11 @@
           if (!resp.ok) showError(data.detail ?? `Error ${resp.status}`);
           else renderAnnotation(data);
         } catch (e) {
-          showError(`Network error: ${e.message}`);
+          const msg = e.message || 'Network error';
+          const friendlyMsg = msg.includes('NetworkError')
+            ? 'Request timeout — the server did not respond in time. Try a different model or increase the timeout.'
+            : `Network error: ${msg}`;
+          showError(friendlyMsg);
         } finally {
           submitBtn.disabled = false;
           setSpinner(false);
@@ -646,7 +650,9 @@
           if (e.name === 'AbortError') {
             results.push({ provider, model, error: `Cancelled after ${fmtDuration(performance.now() - reqStart)}` });
           } else {
-            results.push({ provider, model, error: e.message });
+            const msg = e.message || 'Network error';
+            const timeoutMsg = msg.includes('NetworkError') ? 'Request timeout — server did not respond in time' : msg;
+            results.push({ provider, model, error: timeoutMsg });
           }
         } finally {
           clearInterval(timerInterval);

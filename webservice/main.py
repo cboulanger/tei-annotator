@@ -48,9 +48,9 @@ _GLINER_MODEL = os.environ.get("GLINER_MODEL", "") or None
 # server can return a clean 504 before the browser gives up with a
 # NetworkError.  Override with LLM_TIMEOUT in .env.
 try:
-    _LLM_TIMEOUT = int(os.environ.get("LLM_TIMEOUT", "120"))
+    _LLM_TIMEOUT = int(os.environ.get("LLM_TIMEOUT", "60"))
 except ValueError:
-    _LLM_TIMEOUT = 120
+    _LLM_TIMEOUT = 60
 
 # Optional shared-secret bearer token for general API access.
 # Set API_KEY in .env to enable enforcement; leave empty for open access.
@@ -785,6 +785,6 @@ if __name__ == "__main__":
         )
         uvicorn.run("main:app", host=host, port=port, reload=_args.reload,
                     reload_dirs=reload_dirs,
-                    timeout_keep_alive=120)
+                    timeout_keep_alive=_LLM_TIMEOUT + 30)
     finally:
         _PID_FILE.unlink(missing_ok=True)
