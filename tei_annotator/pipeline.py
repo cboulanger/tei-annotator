@@ -293,8 +293,9 @@ def annotate(
         all_resolved.extend(chunk_resolved)
 
     # ------------------------------------------------------------------ #
-    # Deduplicate spans that appeared in overlapping chunks               #
+    # Deduplicate and merge spans from overlapping chunks                 #
     # ------------------------------------------------------------------ #
+    # First pass: deduplicate identical spans
     seen: set[tuple[str, int, int]] = set()
     deduped: list[ResolvedSpan] = []
     for span in all_resolved:
@@ -302,6 +303,44 @@ def annotate(
         if key not in seen:
             seen.add(key)
             deduped.append(span)
+
+    # Second pass: merge overlapping spans with the same element
+    merged: list[ResolvedSpan] = []
+    processed = set()
+
+    for i, span in enumerate(deduped):
+        if i in processed:
+            continue
+
+        # Find all spans that overlap with this one and have the same element
+        overlapping = [span]
+        for j, other in enumerate(deduped[i+1:], start=i+1):
+            if j in processed:
+                continue
+            if other.element == span.element:
+                # Check if they overlap
+                if not (other.start >= span.end or span.start >= other.end):
+                    overlapping.append(other)
+                    processed.add(j)
+
+        if len(overlapping) > 1:
+            # Merge overlapping spans by extending boundaries
+            merged_start = min(s.start for s in overlapping)
+            merged_end = max(s.end for s in overlapping)
+            # Use first span's attrs (they should all be similar for overlapping detections)
+            merged_span = ResolvedSpan(
+                element=span.element,
+                start=merged_start,
+                end=merged_end,
+                attrs=span.attrs.copy(),
+                children=[],
+                fuzzy_match=any(s.fuzzy_match for s in overlapping),
+            )
+            merged.append(merged_span)
+        else:
+            merged.append(span)
+
+    deduped = merged
 
     # ------------------------------------------------------------------ #
     # STEP 5d  Inject XML tags into the plain text                        #

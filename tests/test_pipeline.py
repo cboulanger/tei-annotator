@@ -175,3 +175,115 @@ def test_annotate_preserves_existing_entity_references():
     )
     assert "&amp;amp;" not in result.xml
     assert "&amp;" in result.xml
+
+
+def test_no_duplicate_tags_when_same_element_detected():
+    """
+    When original text contains <elem>text</elem> and the LLM also detects
+    'text' as <elem>, tags should not be duplicated (e.g., <elem><elem>...).
+
+    This is a regression test for issue #2 (text order corruption in large annotations).
+    """
+    # Create a schema with 'bibl' element for this test
+    schema = TEISchema(
+        elements=[
+            TEIElement(
+                tag="bibl",
+                description="bibliographic entry",
+                allowed_children=[],
+                attributes=[],
+            )
+        ]
+    )
+
+    def _detect_bibl(prompt: str) -> str:
+        # Simulate LLM detecting the exact same text as the original <bibl> tag
+        return json.dumps(
+            [
+                {
+                    "element": "bibl",
+                    "text": "Smith and Jones (2020)",
+                    "context": "See Smith and Jones (2020) for",
+                    "attrs": {"n": "1"},
+                }
+            ]
+        )
+
+    result = annotate(
+        text="See <bibl>Smith and Jones (2020)</bibl> for more.",
+        schema=schema,
+        endpoint=EndpointConfig(
+            capability=EndpointCapability.JSON_ENFORCED,
+            call_fn=_detect_bibl,
+        ),
+        gliner_model=None,
+    )
+    # Should have exactly one opening <bibl> tag, not <bibl><bibl>
+    assert result.xml.count("<bibl>") == 1
+    assert result.xml.count("</bibl>") == 1
+    # Text should not be duplicated
+    assert result.xml.count("Smith and Jones (2020)") == 1
+
+
+def test_overlapping_spans_from_chunks_are_merged():
+    """
+    When overlapping chunks produce overlapping spans with the same element,
+    they should be merged into a single span covering the union of both ranges.
+
+    This prevents text fragmentation and reordering (issue #2).
+    """
+    # Create a minimal schema
+    schema = TEISchema(
+        elements=[
+            TEIElement(
+                tag="ref",
+                description="reference",
+                allowed_children=[],
+                attributes=[],
+            )
+        ]
+    )
+
+    # Simulate two overlapping chunks detecting overlapping sections
+    chunk1_response = json.dumps([{
+        "element": "ref",
+        "text": "item one item two",
+        "context": "See item one item two and",
+        "attrs": {},
+    }])
+
+    chunk2_response = json.dumps([{
+        "element": "ref",
+        "text": "item two item three",
+        "context": "item two item three done",
+        "attrs": {},
+    }])
+
+    call_count = [0]
+    def _multi_chunk_response(prompt: str) -> str:
+        # Alternate between chunk 1 and chunk 2 responses
+        call_count[0] += 1
+        return chunk1_response if call_count[0] == 1 else chunk2_response
+
+    # Text is long enough to be chunked
+    text = "See item one item two and item three done."
+
+    result = annotate(
+        text=text,
+        schema=schema,
+        endpoint=EndpointConfig(
+            capability=EndpointCapability.JSON_ENFORCED,
+            call_fn=_multi_chunk_response,
+        ),
+        gliner_model=None,
+        chunk_size=20,
+        chunk_overlap=5,
+    )
+
+    # Text should not be reordered or duplicated
+    import re
+    plain = re.sub(r"<[^>]+>", "", result.xml)
+    assert plain == text
+    # Should have at most one <ref> pair (merged, not fragmented)
+    ref_count = result.xml.count("<ref>")
+    assert ref_count <= 2, f"Expected <=2 <ref> tags, got {ref_count}"
