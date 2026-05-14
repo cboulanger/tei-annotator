@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import logging
+
 from ..models.spans import ResolvedSpan, SpanDescriptor
+
+log = logging.getLogger(__name__)
 
 try:
     from rapidfuzz import fuzz as _fuzz
@@ -63,6 +67,12 @@ def resolve_spans(
     for span in spans:
         result = _find_context(source, span.context, fuzzy_threshold)
         if result is None:
+            exact_pos = source.find(span.context)
+            log.info(
+                "resolver REJECT <%s>: context not found in source. "
+                "exact_find=%d, context_len=%d, context=%r",
+                span.element, exact_pos, len(span.context), span.context[:120],
+            )
             continue  # context not found → reject
 
         ctx_start, context_is_fuzzy = result
@@ -71,6 +81,11 @@ def resolve_spans(
         window = source[ctx_start : ctx_start + len(span.context)]
         text_pos = window.find(span.text)
         if text_pos == -1:
+            log.info(
+                "resolver REJECT <%s>: text not in context window. "
+                "ctx_start=%d, context_len=%d, text_len=%d, text=%r",
+                span.element, ctx_start, len(span.context), len(span.text), span.text[:120],
+            )
             continue  # text not in context window → reject
 
         abs_start = ctx_start + text_pos
@@ -79,6 +94,12 @@ def resolve_spans(
         # Verify verbatim match (should always hold after exact context find,
         # but important guard after fuzzy context find)
         if source[abs_start:abs_end] != span.text:
+            log.info(
+                "resolver REJECT <%s>: verbatim verify failed at [%d:%d]. "
+                "source=%r span.text=%r",
+                span.element, abs_start, abs_end,
+                source[abs_start:abs_end][:120], span.text[:120],
+            )
             continue
 
         resolved.append(
