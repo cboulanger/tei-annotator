@@ -1,3 +1,10 @@
+## [1.1.1](https://github.com/cboulanger/tei-annotator/compare/v1.1.0...v1.1.1) (2026-05-14)
+
+
+### Bug Fixes
+
+* merge overlapping spans from chunks to prevent text reordering ([4b612a1](https://github.com/cboulanger/tei-annotator/commit/4b612a1fb5c7fe0114580b453cb0f5c8e7d52ab2)), closes [#2](https://github.com/cboulanger/tei-annotator/issues/2)
+
 # [1.1.0](https://github.com/cboulanger/tei-annotator/compare/v1.0.0...v1.1.0) (2026-05-14)
 
 

@@ -1,6 +1,6 @@
 [project]
 name = "tei-annotator"
-version = "1.1.0"
+version = "1.1.1"
 description = "TEI XML annotation library using LLM pipelines"
 readme = "README.md"
 requires-python = ">=3.12"
