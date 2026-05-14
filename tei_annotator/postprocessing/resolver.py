@@ -90,7 +90,7 @@ def resolve_spans(
         result = _find_context(source, span.context, fuzzy_threshold)
         if result is None:
             exact_pos = source.find(span.context)
-            log.info(
+            log.debug(
                 "resolver REJECT <%s>: context not found in source. "
                 "exact_find=%d, context_len=%d, context=%r",
                 span.element, exact_pos, len(span.context), span.context[:120],
@@ -121,7 +121,7 @@ def resolve_spans(
                     # Walk char-by-char to find the true end, tolerating extra
                     # whitespace in source that the LLM text omitted.
                     true_end = _align_end(source, abs_start, span.text)
-                    log.info(
+                    log.debug(
                         "resolver FALLBACK <%s>: fuzzy text search at %d (score=%.2f) "
                         "end adjusted %d→%d",
                         span.element, abs_start, score, abs_end, true_end,
@@ -137,7 +137,7 @@ def resolve_spans(
                         )
                     )
                     continue
-            log.info(
+            log.debug(
                 "resolver REJECT <%s>: text not in context window and fuzzy text search failed. "
                 "ctx_start=%d, context_len=%d, text_len=%d, text=%r",
                 span.element, ctx_start, len(span.context), len(span.text), span.text[:120],
@@ -150,7 +150,7 @@ def resolve_spans(
         # Verify verbatim match (should always hold after exact context find,
         # but important guard after fuzzy context find)
         if source[abs_start:abs_end] != span.text:
-            log.info(
+            log.debug(
                 "resolver REJECT <%s>: verbatim verify failed at [%d:%d]. "
                 "source=%r span.text=%r",
                 span.element, abs_start, abs_end,

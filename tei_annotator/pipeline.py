@@ -233,7 +233,7 @@ def annotate(
     # STEPS 3–5  Chunk → prompt → infer → postprocess                     #
     # ------------------------------------------------------------------ #
     chunks = chunk_text(plain_text, chunk_size=chunk_size, overlap=chunk_overlap)
-    log.info("annotate: plain_text length=%d, %d chunk(s)", len(plain_text), len(chunks))
+    log.debug("annotate: plain_text length=%d, %d chunk(s)", len(plain_text), len(chunks))
     all_resolved: list[ResolvedSpan] = []
 
     for chunk in chunks:
@@ -246,7 +246,7 @@ def annotate(
                 if c.context and chunk.text.find(c.context[:30]) != -1
             ] or None
 
-        log.info(
+        log.debug(
             "chunk offset=%d len=%d",
             chunk.start_offset, len(chunk.text),
         )
@@ -288,7 +288,7 @@ def annotate(
             )
             continue
 
-        log.info(
+        log.debug(
             "chunk offset=%d: LLM returned %d span descriptor(s): %s",
             chunk.start_offset,
             len(span_descs),
@@ -299,12 +299,12 @@ def annotate(
         chunk_resolved = resolve_spans(chunk.text, span_descs)
 
         rejected = len(span_descs) - len(chunk_resolved)
-        log.info(
+        log.debug(
             "chunk offset=%d: resolved %d/%d span(s), %d rejected by resolver",
             chunk.start_offset, len(chunk_resolved), len(span_descs), rejected,
         )
         for s in chunk_resolved:
-            log.info(
+            log.debug(
                 "  resolved: <%s> [%d:%d] text=%r",
                 s.element, s.start, s.end, chunk.text[s.start:s.end][:60],
             )
@@ -315,7 +315,7 @@ def annotate(
                 # Locate where this descriptor's text appears in the chunk
                 pos = chunk.text.find(s.text)
                 if pos == -1 or (pos, pos + len(s.text)) not in resolved_ranges:
-                    log.info(
+                    log.debug(
                         "  rejected: <%s> text=%r context=%r",
                         s.element, s.text[:80], s.context[:80],
                     )
@@ -338,7 +338,7 @@ def annotate(
         before_validate = len(chunk_resolved)
         chunk_resolved = validate_spans(chunk_resolved, schema, plain_text)
         if len(chunk_resolved) < before_validate:
-            log.info(
+            log.debug(
                 "chunk offset=%d: %d span(s) dropped by schema validator",
                 chunk.start_offset, before_validate - len(chunk_resolved),
             )
@@ -348,7 +348,7 @@ def annotate(
     # ------------------------------------------------------------------ #
     # Deduplicate and merge spans from overlapping chunks                 #
     # ------------------------------------------------------------------ #
-    log.info("post-chunk: %d total span(s) across all chunks before dedup", len(all_resolved))
+    log.debug("post-chunk: %d total span(s) across all chunks before dedup", len(all_resolved))
 
     # First pass: deduplicate identical spans
     seen: set[tuple[str, int, int]] = set()
@@ -360,7 +360,7 @@ def annotate(
             deduped.append(span)
 
     if len(deduped) < len(all_resolved):
-        log.info("dedup: removed %d exact duplicate(s)", len(all_resolved) - len(deduped))
+        log.debug("dedup: removed %d exact duplicate(s)", len(all_resolved) - len(deduped))
 
     # Second pass: merge overlapping spans with the same element
     merged: list[ResolvedSpan] = []
@@ -385,7 +385,7 @@ def annotate(
             # Merge overlapping spans by extending boundaries
             merged_start = min(s.start for s in overlapping)
             merged_end = max(s.end for s in overlapping)
-            log.info(
+            log.debug(
                 "merge: %d overlapping <%s> spans → [%d:%d] (was %s)",
                 len(overlapping), span.element, merged_start, merged_end,
                 [(s.start, s.end) for s in overlapping],
@@ -403,21 +403,21 @@ def annotate(
             merged.append(span)
 
     deduped = merged
-    log.info("final: %d span(s) after dedup+merge: %s", len(deduped), [(s.element, s.start, s.end) for s in deduped])
+    log.debug("final: %d span(s) after dedup+merge: %s", len(deduped), [(s.element, s.start, s.end) for s in deduped])
 
     # ------------------------------------------------------------------ #
     # STEP 5d  Inject XML tags into the plain text                        #
     # ------------------------------------------------------------------ #
-    log.info("inject_xml: injecting %d span(s) into plain text", len(deduped))
+    log.debug("inject_xml: injecting %d span(s) into plain text", len(deduped))
     annotated_text = inject_xml(plain_text, deduped)
-    log.info("inject_xml: done, annotated length=%d", len(annotated_text))
+    log.debug("inject_xml: done, annotated length=%d", len(annotated_text))
 
     # ------------------------------------------------------------------ #
     # STEP 5d (cont.)  Restore original XML tags                          #
     # ------------------------------------------------------------------ #
-    log.info("restore_tags: %d original tag(s) to restore", len(restore_map))
+    log.debug("restore_tags: %d original tag(s) to restore", len(restore_map))
     final_xml = _restore_existing_tags(annotated_text, restore_map)
-    log.info("restore_tags: done, final length=%d", len(final_xml))
+    log.debug("restore_tags: done, final length=%d", len(final_xml))
 
     # ------------------------------------------------------------------ #
     # STEP 5d (cont.)  Escape bare & in text nodes                        #
