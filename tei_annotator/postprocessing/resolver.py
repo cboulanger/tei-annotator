@@ -81,8 +81,30 @@ def resolve_spans(
         window = source[ctx_start : ctx_start + len(span.context)]
         text_pos = window.find(span.text)
         if text_pos == -1:
+            # Fuzzy context match may have landed slightly off; try a direct
+            # exact search for the text anywhere in the source as a fallback.
+            direct_pos = source.find(span.text)
+            if direct_pos != -1:
+                log.info(
+                    "resolver FALLBACK <%s>: text not in fuzzy window "
+                    "(ctx_start=%d context_len=%d) but found directly at %d",
+                    span.element, ctx_start, len(span.context), direct_pos,
+                )
+                abs_start = direct_pos
+                abs_end = direct_pos + len(span.text)
+                resolved.append(
+                    ResolvedSpan(
+                        element=span.element,
+                        start=abs_start,
+                        end=abs_end,
+                        attrs=span.attrs.copy(),
+                        children=[],
+                        fuzzy_match=True,  # mark fuzzy since context didn't match cleanly
+                    )
+                )
+                continue
             log.info(
-                "resolver REJECT <%s>: text not in context window. "
+                "resolver REJECT <%s>: text not in context window and not in source. "
                 "ctx_start=%d, context_len=%d, text_len=%d, text=%r",
                 span.element, ctx_start, len(span.context), len(span.text), span.text[:120],
             )
