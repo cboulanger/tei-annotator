@@ -81,30 +81,38 @@ def resolve_spans(
         window = source[ctx_start : ctx_start + len(span.context)]
         text_pos = window.find(span.text)
         if text_pos == -1:
-            # Fuzzy context match may have landed slightly off; try a direct
-            # exact search for the text anywhere in the source as a fallback.
-            direct_pos = source.find(span.text)
-            if direct_pos != -1:
-                log.info(
-                    "resolver FALLBACK <%s>: text not in fuzzy window "
-                    "(ctx_start=%d context_len=%d) but found directly at %d",
-                    span.element, ctx_start, len(span.context), direct_pos,
-                )
-                abs_start = direct_pos
-                abs_end = direct_pos + len(span.text)
-                resolved.append(
-                    ResolvedSpan(
-                        element=span.element,
-                        start=abs_start,
-                        end=abs_end,
-                        attrs=span.attrs.copy(),
-                        children=[],
-                        fuzzy_match=True,  # mark fuzzy since context didn't match cleanly
+            # The fuzzy context match may have landed slightly off, or the LLM
+            # text has minor whitespace differences from the source (e.g. \n vs
+            # \n<space> around stripped <lb/> tags).  Try locating the text
+            # with its own fuzzy search, then take the verbatim source slice.
+            text_result = _find_context(source, span.text, fuzzy_threshold)
+            if text_result is not None:
+                text_fuzzy_start, _ = text_result
+                abs_start = text_fuzzy_start
+                abs_end = text_fuzzy_start + len(span.text)
+                # Verify the source slice is a reasonable match (not completely wrong)
+                if _HAS_RAPIDFUZZ:
+                    score = _fuzz.ratio(span.text, source[abs_start:abs_end]) / 100.0
+                else:
+                    score = 1.0 if source[abs_start:abs_end] == span.text else 0.0
+                if score >= fuzzy_threshold:
+                    log.info(
+                        "resolver FALLBACK <%s>: fuzzy text search at %d (score=%.2f)",
+                        span.element, abs_start, score,
                     )
-                )
-                continue
+                    resolved.append(
+                        ResolvedSpan(
+                            element=span.element,
+                            start=abs_start,
+                            end=abs_end,
+                            attrs=span.attrs.copy(),
+                            children=[],
+                            fuzzy_match=True,
+                        )
+                    )
+                    continue
             log.info(
-                "resolver REJECT <%s>: text not in context window and not in source. "
+                "resolver REJECT <%s>: text not in context window and fuzzy text search failed. "
                 "ctx_start=%d, context_len=%d, text_len=%d, text=%r",
                 span.element, ctx_start, len(span.context), len(span.text), span.text[:120],
             )

@@ -87,6 +87,26 @@ def test_text_equals_context_with_whitespace_diff():
     assert isinstance(resolved, list)  # must not raise
 
 
+def test_fuzzy_text_fallback_when_newline_space_mismatch():
+    """
+    Regression for issue #2: source has '\\n ' (newline+space, from <lb/> stripping)
+    but LLM text has '\\n' (newline only). source.find(text) returns -1, but the
+    fuzzy text fallback must still resolve the span.
+    """
+    # Source: newline + space after "including" (what _strip_existing_tags produces
+    # from "including<lb/>\n treatment")
+    source = "Footnote 16 aims to cover well-being (including\n treatment of individuals)."
+    # LLM emits the same text but with '\n' instead of '\n ':
+    llm_text = "aims to cover well-being (including\ntreatment of individuals)."
+    span = _span("bibl", llm_text, llm_text)
+
+    resolved = resolve_spans(source, [span])
+    assert len(resolved) == 1, "span must be resolved via fuzzy text fallback"
+    assert resolved[0].fuzzy_match is True
+    # boundaries must be within source
+    assert 0 <= resolved[0].start < resolved[0].end <= len(source)
+
+
 def test_direct_fallback_when_fuzzy_context_misses():
     """
     When context fuzzy-matches but text is not in the matched window,
