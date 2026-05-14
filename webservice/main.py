@@ -24,6 +24,13 @@ from pathlib import Path
 
 _DEBUG = os.environ.get("TEI_DEBUG_HTTP", "") == "1"
 
+import logging as _logging
+_logging.basicConfig(
+    level=_logging.INFO,
+    format="%(asctime)s %(name)s %(levelname)s %(message)s",
+    stream=sys.stderr,
+)
+
 
 def _dbg(msg: str) -> None:
     """Diagnostic print, gated by TEI_DEBUG_HTTP=1."""

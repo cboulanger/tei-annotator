@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import logging
 import re
 import warnings
 from dataclasses import dataclass, field
+
+log = logging.getLogger(__name__)
 
 from .chunking.chunker import chunk_text
 from .inference.endpoint import EndpointCapability, EndpointConfig
@@ -230,6 +233,7 @@ def annotate(
     # STEPS 3–5  Chunk → prompt → infer → postprocess                     #
     # ------------------------------------------------------------------ #
     chunks = chunk_text(plain_text, chunk_size=chunk_size, overlap=chunk_overlap)
+    log.info("annotate: plain_text length=%d, %d chunk(s)", len(plain_text), len(chunks))
     all_resolved: list[ResolvedSpan] = []
 
     for chunk in chunks:
@@ -241,6 +245,11 @@ def annotate(
                 for c in gliner_candidates
                 if c.context and chunk.text.find(c.context[:30]) != -1
             ] or None
+
+        log.info(
+            "chunk offset=%d len=%d",
+            chunk.start_offset, len(chunk.text),
+        )
 
         # 3. Build prompt / raw request
         if endpoint.capability == EndpointCapability.EXTRACTION:
@@ -279,8 +288,34 @@ def annotate(
             )
             continue
 
+        log.info(
+            "chunk offset=%d: LLM returned %d span descriptor(s): %s",
+            chunk.start_offset,
+            len(span_descs),
+            [(s.element, repr(s.text[:40])) for s in span_descs],
+        )
+
         # 5a. Resolve within chunk text → positions relative to chunk
         chunk_resolved = resolve_spans(chunk.text, span_descs)
+
+        rejected = len(span_descs) - len(chunk_resolved)
+        log.info(
+            "chunk offset=%d: resolved %d/%d span(s), %d rejected by resolver",
+            chunk.start_offset, len(chunk_resolved), len(span_descs), rejected,
+        )
+        for s in chunk_resolved:
+            log.info(
+                "  resolved: <%s> [%d:%d] text=%r",
+                s.element, s.start, s.end, chunk.text[s.start:s.end][:60],
+            )
+        if rejected:
+            resolved_texts = {s.text for s in chunk_resolved}
+            for s in span_descs:
+                if s.text not in resolved_texts:
+                    log.info(
+                        "  rejected: <%s> text=%r context=%r",
+                        s.element, s.text[:60], s.context[:60],
+                    )
 
         # Warn if many spans were rejected (likely resolver context mismatch)
         if len(span_descs) > 0 and len(chunk_resolved) < len(span_descs) * 0.5:
@@ -297,13 +332,21 @@ def annotate(
             span.end += chunk.start_offset
 
         # 5c. Validate against schema
+        before_validate = len(chunk_resolved)
         chunk_resolved = validate_spans(chunk_resolved, schema, plain_text)
+        if len(chunk_resolved) < before_validate:
+            log.info(
+                "chunk offset=%d: %d span(s) dropped by schema validator",
+                chunk.start_offset, before_validate - len(chunk_resolved),
+            )
 
         all_resolved.extend(chunk_resolved)
 
     # ------------------------------------------------------------------ #
     # Deduplicate and merge spans from overlapping chunks                 #
     # ------------------------------------------------------------------ #
+    log.info("post-chunk: %d total span(s) across all chunks before dedup", len(all_resolved))
+
     # First pass: deduplicate identical spans
     seen: set[tuple[str, int, int]] = set()
     deduped: list[ResolvedSpan] = []
@@ -312,6 +355,9 @@ def annotate(
         if key not in seen:
             seen.add(key)
             deduped.append(span)
+
+    if len(deduped) < len(all_resolved):
+        log.info("dedup: removed %d exact duplicate(s)", len(all_resolved) - len(deduped))
 
     # Second pass: merge overlapping spans with the same element
     merged: list[ResolvedSpan] = []
@@ -336,7 +382,11 @@ def annotate(
             # Merge overlapping spans by extending boundaries
             merged_start = min(s.start for s in overlapping)
             merged_end = max(s.end for s in overlapping)
-            # Use first span's attrs (they should all be similar for overlapping detections)
+            log.info(
+                "merge: %d overlapping <%s> spans → [%d:%d] (was %s)",
+                len(overlapping), span.element, merged_start, merged_end,
+                [(s.start, s.end) for s in overlapping],
+            )
             merged_span = ResolvedSpan(
                 element=span.element,
                 start=merged_start,
@@ -350,6 +400,7 @@ def annotate(
             merged.append(span)
 
     deduped = merged
+    log.info("final: %d span(s) after dedup+merge: %s", len(deduped), [(s.element, s.start, s.end) for s in deduped])
 
     # ------------------------------------------------------------------ #
     # STEP 5d  Inject XML tags into the plain text                        #
