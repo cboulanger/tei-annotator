@@ -1,3 +1,10 @@
+# [1.3.0](https://github.com/cboulanger/tei-annotator/compare/v1.2.0...v1.3.0) (2026-05-14)
+
+
+### Features
+
+* add INFO-level pipeline diagnostics for issue [#2](https://github.com/cboulanger/tei-annotator/issues/2) debugging ([81dc61e](https://github.com/cboulanger/tei-annotator/commit/81dc61ec435c7bfcb1b0ea036de8b1a475e7ada3))
+
 # [1.2.0](https://github.com/cboulanger/tei-annotator/compare/v1.1.1...v1.2.0) (2026-05-14)
 
 
