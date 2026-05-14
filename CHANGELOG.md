@@ -1,3 +1,10 @@
+# [1.1.0](https://github.com/cboulanger/tei-annotator/compare/v1.0.0...v1.1.0) (2026-05-14)
+
+
+### Features
+
+* **webservice:** fix timeout handling, reduce default LLM timeout to 60s ([d499dab](https://github.com/cboulanger/tei-annotator/commit/d499dabfbc04e3cb94aa34512b5b8d782e69c82b))
+
 # 1.0.0 (2026-05-14)
 
 
