@@ -1,3 +1,10 @@
+## [1.3.1](https://github.com/cboulanger/tei-annotator/compare/v1.3.0...v1.3.1) (2026-05-14)
+
+
+### Bug Fixes
+
+* downgrade diagnostic log messages from INFO to DEBUG ([e3ca37f](https://github.com/cboulanger/tei-annotator/commit/e3ca37fd260f318367062f0722a802f7422385a3)), closes [#2](https://github.com/cboulanger/tei-annotator/issues/2)
+
 # [1.3.0](https://github.com/cboulanger/tei-annotator/compare/v1.2.0...v1.3.0) (2026-05-14)
 
 
