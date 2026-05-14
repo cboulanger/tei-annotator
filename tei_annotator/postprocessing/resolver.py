@@ -14,6 +14,28 @@ except ImportError:
     _HAS_RAPIDFUZZ = False
 
 
+def _align_end(source: str, source_start: int, text: str, max_extra: int = 50) -> int:
+    """
+    Walk *source* from *source_start* advancing in parallel with *text*, allowing
+    up to *max_extra* extra whitespace characters in *source* (e.g. spaces left
+    behind by stripped <lb/> tags).  Returns the source position just after the
+    last matched character of *text*.
+    """
+    s = source_start
+    t = 0
+    extra = 0
+    while t < len(text) and s < len(source):
+        if source[s] == text[t]:
+            s += 1
+            t += 1
+        elif source[s] in " \t\n\r" and extra < max_extra:
+            s += 1  # extra whitespace in source — skip it
+            extra += 1
+        else:
+            break
+    return s
+
+
 def _find_context(
     source: str,
     context: str,
@@ -96,15 +118,19 @@ def resolve_spans(
                 else:
                     score = 1.0 if source[abs_start:abs_end] == span.text else 0.0
                 if score >= fuzzy_threshold:
+                    # Walk char-by-char to find the true end, tolerating extra
+                    # whitespace in source that the LLM text omitted.
+                    true_end = _align_end(source, abs_start, span.text)
                     log.info(
-                        "resolver FALLBACK <%s>: fuzzy text search at %d (score=%.2f)",
-                        span.element, abs_start, score,
+                        "resolver FALLBACK <%s>: fuzzy text search at %d (score=%.2f) "
+                        "end adjusted %d→%d",
+                        span.element, abs_start, score, abs_end, true_end,
                     )
                     resolved.append(
                         ResolvedSpan(
                             element=span.element,
                             start=abs_start,
-                            end=abs_end,
+                            end=true_end,
                             attrs=span.attrs.copy(),
                             children=[],
                             fuzzy_match=True,

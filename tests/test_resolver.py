@@ -91,7 +91,7 @@ def test_fuzzy_text_fallback_when_newline_space_mismatch():
     """
     Regression for issue #2: source has '\\n ' (newline+space, from <lb/> stripping)
     but LLM text has '\\n' (newline only). source.find(text) returns -1, but the
-    fuzzy text fallback must still resolve the span.
+    fuzzy text fallback must still resolve the span with the correct end boundary.
     """
     # Source: newline + space after "including" (what _strip_existing_tags produces
     # from "including<lb/>\n treatment")
@@ -103,8 +103,10 @@ def test_fuzzy_text_fallback_when_newline_space_mismatch():
     resolved = resolve_spans(source, [span])
     assert len(resolved) == 1, "span must be resolved via fuzzy text fallback"
     assert resolved[0].fuzzy_match is True
-    # boundaries must be within source
-    assert 0 <= resolved[0].start < resolved[0].end <= len(source)
+    # The resolved span must cover the full content up to and including the final '.'
+    assert source[resolved[0].end - 1] == ".", (
+        f"span must end after the closing '.', got ...{source[resolved[0].end-3:resolved[0].end+3]!r}"
+    )
 
 
 def test_direct_fallback_when_fuzzy_context_misses():
