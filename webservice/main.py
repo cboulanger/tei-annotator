@@ -569,20 +569,25 @@ async def annotate_api(
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
-    return AnnotateResponse(
-        xml=result.xml,
-        elapsed_seconds=round(elapsed, 1),
-        fuzzy_spans=[
-            FuzzySpan(element=s.element, start=s.start, end=s.end)
-            for s in result.fuzzy_spans
-        ],
-    )
+    try:
+        response = AnnotateResponse(
+            xml=result.xml,
+            elapsed_seconds=round(elapsed, 1),
+            fuzzy_spans=[
+                FuzzySpan(element=s.element, start=s.start, end=s.end)
+                for s in result.fuzzy_spans
+            ],
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    return response
 
 
 class EvaluateRequest(BaseModel):
     provider: str | None = None
     model: str | None = None
-    schema: str = "bibl"
+    schema_id: str = "bibl"
     corpus: str = "default"
     n: int = 5
     seed: int | None = None
@@ -612,7 +617,7 @@ async def evaluate_api(
         return await asyncio.to_thread(
             _run_evaluation,
             body.provider, body.model,
-            schema_id=body.schema,
+            schema_id=body.schema_id,
             corpus_label=body.corpus,
             n=body.n, seed=body.seed,
             premium_key=x_premium_key,
@@ -662,6 +667,7 @@ if __name__ == "__main__":
     try:
         host = os.environ.get("HOST", "0.0.0.0")
         port = int(os.environ.get("PORT", "8000"))
-        uvicorn.run("main:app", host=host, port=port, reload=_args.reload)
+        uvicorn.run("main:app", host=host, port=port, reload=_args.reload,
+                    timeout_keep_alive=120)
     finally:
         _PID_FILE.unlink(missing_ok=True)
