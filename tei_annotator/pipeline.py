@@ -282,6 +282,15 @@ def annotate(
         # 5a. Resolve within chunk text → positions relative to chunk
         chunk_resolved = resolve_spans(chunk.text, span_descs)
 
+        # Warn if many spans were rejected (likely resolver context mismatch)
+        if len(span_descs) > 0 and len(chunk_resolved) < len(span_descs) * 0.5:
+            warnings.warn(
+                f"Chunk at offset {chunk.start_offset}: {len(span_descs)} spans detected "
+                f"but only {len(chunk_resolved)} resolved. This may indicate context mismatch "
+                f"(LLM context includes XML tags stripped from plain text).",
+                stacklevel=2,
+            )
+
         # 5b. Shift to global (plain_text) offsets
         for span in chunk_resolved:
             span.start += chunk.start_offset
