@@ -11,7 +11,7 @@ uv sync --extra webservice
 cp .env.template .env
 # edit .env — set at least one provider API key (see Providers below)
 uv run task webservice          # reads HOST / PORT from .env
-uv run python main.py --reload  # development mode with auto-reload
+uv run python webservice/main.py --reload  # development mode with auto-reload
 ```
 
 > **Note:** Do not start with `uvicorn main:app` directly — uvicorn binds the port from its CLI args *before* the module is imported, so `load_dotenv()` would run too late to affect the port. Running via `python main.py` also handles automatic cleanup of any previously running instance on the same port.
