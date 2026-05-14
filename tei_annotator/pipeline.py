@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import warnings
 from dataclasses import dataclass, field
 
@@ -99,6 +100,36 @@ def _restore_existing_tags(annotated_xml: str, restore_map: list[_TagEntry]) -> 
         for tag in inserts[pos]:
             result.append(tag)
 
+    return "".join(result)
+
+
+_ENTITY_RE = re.compile(r"&(?:[a-zA-Z][a-zA-Z0-9]*|#[0-9]+|#x[0-9a-fA-F]+);")
+
+
+def _escape_bare_ampersands(xml: str) -> str:
+    """Replace bare & (not part of a valid entity reference) with &amp; in text nodes."""
+    result: list[str] = []
+    i = 0
+    while i < len(xml):
+        if xml[i] == "<":
+            j = xml.find(">", i)
+            if j != -1:
+                result.append(xml[i : j + 1])
+                i = j + 1
+            else:
+                result.append(xml[i])
+                i += 1
+        elif xml[i] == "&":
+            m = _ENTITY_RE.match(xml, i)
+            if m:
+                result.append(m.group())
+                i += len(m.group())
+            else:
+                result.append("&amp;")
+                i += 1
+        else:
+            result.append(xml[i])
+            i += 1
     return "".join(result)
 
 
@@ -281,6 +312,11 @@ def annotate(
     # STEP 5d (cont.)  Restore original XML tags                          #
     # ------------------------------------------------------------------ #
     final_xml = _restore_existing_tags(annotated_text, restore_map)
+
+    # ------------------------------------------------------------------ #
+    # STEP 5d (cont.)  Escape bare & in text nodes                        #
+    # ------------------------------------------------------------------ #
+    final_xml = _escape_bare_ampersands(final_xml)
 
     # ------------------------------------------------------------------ #
     # STEP 5e  Final XML validation (best-effort)                         #

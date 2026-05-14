@@ -135,3 +135,43 @@ def test_annotate_no_text_modification():
 
     plain = re.sub(r"<[^>]+>", "", result.xml)
     assert plain == original
+
+
+def test_annotate_escapes_bare_ampersand():
+    """Bare & in source text must be escaped to &amp; in the output XML."""
+    original = "Smith & Jones 2020."
+
+    def _no_spans(_prompt):
+        return json.dumps([])
+
+    result = annotate(
+        text=original,
+        schema=_schema(),
+        endpoint=EndpointConfig(
+            capability=EndpointCapability.JSON_ENFORCED,
+            call_fn=_no_spans,
+        ),
+        gliner_model=None,
+    )
+    assert "&amp;" in result.xml
+    assert "& J" not in result.xml
+
+
+def test_annotate_preserves_existing_entity_references():
+    """Already-escaped &amp; in input must not be double-escaped."""
+    original = "Smith &amp; Jones 2020."
+
+    def _no_spans(_prompt):
+        return json.dumps([])
+
+    result = annotate(
+        text=original,
+        schema=_schema(),
+        endpoint=EndpointConfig(
+            capability=EndpointCapability.JSON_ENFORCED,
+            call_fn=_no_spans,
+        ),
+        gliner_model=None,
+    )
+    assert "&amp;amp;" not in result.xml
+    assert "&amp;" in result.xml

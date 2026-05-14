@@ -31,6 +31,8 @@ _XML_TAG_RE = re.compile(
     r"<(/?)([a-zA-Z_][\w:.-]*)(\s[^<>\"']*(?:(?:\"[^\"]*\"|'[^']*')[^<>\"']*)*)?/?>|<!--.*?-->",
     re.DOTALL,
 )
+# Matches a bare & that is NOT the start of a valid XML entity reference.
+_BARE_AMP_RE = re.compile(r"&(?!(?:[a-zA-Z][a-zA-Z0-9]*|#[0-9]+|#x[0-9a-fA-F]+);)")
 
 
 def _escape_nonschema_brackets(fragment: str, allowed_tags: frozenset[str]) -> str:
@@ -46,8 +48,10 @@ def _escape_nonschema_brackets(fragment: str, allowed_tags: frozenset[str]) -> s
     that originates from decoded XML entities in gold-standard files.
     """
     def _escape_text(t: str) -> str:
-        # & must be replaced before < / > to avoid double-encoding
-        return t.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+        # Only escape bare & (not already part of an entity reference),
+        # then escape < and >.  Using the regex avoids double-encoding &amp; etc.
+        t = _BARE_AMP_RE.sub("&amp;", t)
+        return t.replace("<", "&lt;").replace(">", "&gt;")
 
     parts: list[str] = []
     last = 0
