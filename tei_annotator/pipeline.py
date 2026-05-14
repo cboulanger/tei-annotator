@@ -309,12 +309,15 @@ def annotate(
                 s.element, s.start, s.end, chunk.text[s.start:s.end][:60],
             )
         if rejected:
-            resolved_texts = {s.text for s in chunk_resolved}
+            # Find which SpanDescriptors weren't resolved by checking coverage
+            resolved_ranges = {(s.start, s.end) for s in chunk_resolved}
             for s in span_descs:
-                if s.text not in resolved_texts:
+                # Locate where this descriptor's text appears in the chunk
+                pos = chunk.text.find(s.text)
+                if pos == -1 or (pos, pos + len(s.text)) not in resolved_ranges:
                     log.info(
                         "  rejected: <%s> text=%r context=%r",
-                        s.element, s.text[:60], s.context[:60],
+                        s.element, s.text[:80], s.context[:80],
                     )
 
         # Warn if many spans were rejected (likely resolver context mismatch)
@@ -405,12 +408,16 @@ def annotate(
     # ------------------------------------------------------------------ #
     # STEP 5d  Inject XML tags into the plain text                        #
     # ------------------------------------------------------------------ #
+    log.info("inject_xml: injecting %d span(s) into plain text", len(deduped))
     annotated_text = inject_xml(plain_text, deduped)
+    log.info("inject_xml: done, annotated length=%d", len(annotated_text))
 
     # ------------------------------------------------------------------ #
     # STEP 5d (cont.)  Restore original XML tags                          #
     # ------------------------------------------------------------------ #
+    log.info("restore_tags: %d original tag(s) to restore", len(restore_map))
     final_xml = _restore_existing_tags(annotated_text, restore_map)
+    log.info("restore_tags: done, final length=%d", len(final_xml))
 
     # ------------------------------------------------------------------ #
     # STEP 5d (cont.)  Escape bare & in text nodes                        #
