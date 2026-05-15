@@ -175,6 +175,48 @@ For the iterative schema-improvement workflow see [docs/tei-element-descriptions
 
 ---
 
+## Debugging annotation output
+
+`scripts/debug_annotation.py` runs the annotation pipeline step-by-step on a
+single text snippet and prints every intermediate result — prompt, raw LLM
+response, parsed spans, resolver output, validation rejections, and the final XML.
+Useful for diagnosing why a particular record is annotated incorrectly.
+
+```bash
+# Annotate a text snippet (default: gemini / gemini-2.5-flash, bibl schema)
+uv run scripts/debug_annotation.py --text "Bugnon (A.-L.), Le mobilier céramique, in Méloche 2012, p. 182-196."
+
+# Read text from a file or stdin
+uv run scripts/debug_annotation.py --file path/to/snippet.txt
+echo "Curie 1911..." | uv run scripts/debug_annotation.py
+
+# Different provider / model / schema
+uv run scripts/debug_annotation.py --text "..." \
+    --provider kisski --model Qwen3-235B-A22B \
+    --schema bibl-reference-segmenter
+
+# Print the full LLM prompt (suppressed by default — ~7 KB)
+uv run scripts/debug_annotation.py --text "..." --show-prompt
+```
+
+The output walks through each pipeline stage with counts and rejection reasons:
+
+```text
+STEP 1  Strip existing XML tags       (reports any tags stripped from input)
+STEP 2  Chunking                      (chunk count, offsets)
+STEP 3  Chunk N/N
+  Prompt: 7648 chars                  (truncated preview; --show-prompt for full)
+  Raw LLM response                    (full JSON as returned)
+  Parsed spans: 8                     (SpanDescriptors with text + context)
+  Resolved spans: 8/8                 (char offsets; rejected with reason)
+  Validated spans: 8/8               (schema rejects with reason)
+STEP 4  Deduplication & merge         (overlapping spans from chunking)
+STEP 5  inject_xml
+FINAL OUTPUT                          (annotated XML)
+```
+
+---
+
 ## Demo and webservice
 
 - **HuggingFace demo:** <https://huggingface.co/spaces/cmboulanger/tei-annotator>

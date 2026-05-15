@@ -4,6 +4,8 @@
 
 Uses `uv`. Run tests with `uv run pytest`. Install deps with `uv sync` (add `--extra gliner` or `--extra webservice` for optional extras). API keys go in `.env` (copy from `.env.template`).
 
+`gh` is available for GitHub operations (issues, PRs, etc.).
+
 ---
 
 ## Project layout
@@ -25,6 +27,7 @@ tei_annotator/          core library
 
 scripts/
   evaluate_llm.py       run any provider against a gold-standard TEI file
+  debug_annotation.py   step-by-step pipeline debug for a single text snippet
   smoke_test_llm.py     quick connectivity check
   smoke_test_webservice.py
 
@@ -49,6 +52,35 @@ docs/                   see Documentation section below
 - `SpanDescriptor` is always **flat** — no nesting. `ResolvedSpan.children` is populated later by the injector.
 - Source text is **never modified** by any model call.
 - Cross-element constraints belong in `TEISchema.rules` (rendered as numbered "General Rules" before element descriptions), not duplicated inside individual element descriptions.
+
+---
+
+## Debugging annotation bugs
+
+When a text snippet is annotated incorrectly, run `debug_annotation.py` **before**
+touching any code. It executes the full pipeline step-by-step and prints every
+intermediate result so you can pinpoint exactly where accuracy is lost.
+
+```bash
+uv run scripts/debug_annotation.py --text "<failing snippet>"
+# pass --show-prompt to inspect the full LLM prompt
+# pass --provider / --model to test a different model
+```
+
+**Read the output top-to-bottom and identify the first stage where the problem
+appears:**
+
+| Stage | What to look for | Likely fix |
+| --- | --- | --- |
+| **Parsed spans** | LLM emitted the wrong element, wrong text, or missing span | Improve the element description or schema rules |
+| **Resolved spans** | Span parsed correctly but not resolved (context mismatch) | LLM's context string doesn't match source — improve prompt or context instructions |
+| **Validated spans** | Resolved but rejected (unknown element / bad attribute value) | Schema element name or attribute value list is wrong |
+| **Final XML** | All spans correct but XML is malformed or nesting is wrong | `inject_xml` / injector issue |
+
+Only fix schema descriptions or rules (in `tei_annotator/schemas/`) to address
+**Parsed spans** problems. Do not patch the pipeline code for prompt-quality issues.
+After changing schema descriptions, re-run the debugger on the same snippet to
+confirm the fix, then run the evaluator to check for regressions.
 
 ---
 
