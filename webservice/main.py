@@ -55,7 +55,7 @@ _GLINER_MODEL = os.environ.get("GLINER_MODEL", "") or None
 # server can return a clean 504 before the browser gives up with a
 # NetworkError.  Override with LLM_TIMEOUT in .env.
 try:
-    _LLM_TIMEOUT = int(os.environ.get("LLM_TIMEOUT", "60"))
+    _LLM_TIMEOUT = int(os.environ.get("LLM_TIMEOUT", "180"))
 except ValueError:
     _LLM_TIMEOUT = 60
 

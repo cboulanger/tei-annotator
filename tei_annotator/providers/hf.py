@@ -14,9 +14,16 @@ class HFConnector(Connector):
     _BASE_URL = "https://router.huggingface.co/v1"
 
     _MODELS = [
-        "Qwen/Qwen3-14B",
+        # ── fast ────────────────────────────────────────────────────────────
+        "Qwen/Qwen3-4B",                          # smallest/fastest Qwen3
+        "Qwen/Qwen2.5-7B-Instruct",               # proven instruction-follower
+        # ── balanced ────────────────────────────────────────────────────────
+        "Qwen/Qwen3-14B",                         # good quality/speed trade-off
+        "mistralai/Mistral-7B-Instruct-v0.3",     # fast, solid JSON output
+        # ── high quality (Pro / premium token) ──────────────────────────────
+        "*meta-llama/Llama-3.3-70B-Instruct",
         "*meta-llama/Llama-3.1-70B-Instruct",
-        "*deepseek-ai/DeepSeek-R1-Distill-Llama-70B",
+        "*Qwen/Qwen2.5-72B-Instruct",
     ]
 
     @property
