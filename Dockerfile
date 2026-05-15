@@ -47,7 +47,7 @@ WORKDIR /app
 RUN pip install --no-cache-dir uv
 
 # Copy dependency spec first for layer caching
-COPY pyproject.toml ./
+COPY pyproject.toml README.md ./
 
 # Copy only what the webservice needs at runtime
 COPY tei_annotator/ ./tei_annotator/
