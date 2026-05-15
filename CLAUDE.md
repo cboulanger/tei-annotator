@@ -132,7 +132,6 @@ Key flags: `--provider`, `--model`, `--schema`, `--gold-file`, `--max-items`,
 | Path | Topic |
 |------|-------|
 | [docs/tei-element-descriptions.md](docs/tei-element-descriptions.md) | Evidence-based guidelines for writing effective TEIElement descriptions |
-| [docs/huggingface-deployment.md](docs/huggingface-deployment.md) | Deploying `app.py` to HuggingFace Spaces |
 
 ### Experiments
 

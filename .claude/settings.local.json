@@ -7,5 +7,8 @@
       "Bash(/Users/cboulanger/.local/bin/hf auth:*)",
       "Bash(uv sync:*)"
     ]
+  },
+  "enabledPlugins": {
+    "hf-cli@huggingface-skills": true
   }
 }

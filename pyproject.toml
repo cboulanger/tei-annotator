@@ -18,7 +18,6 @@ webservice = [
     "uvicorn[standard]>=0.30",
     "python-multipart>=0.0.9",
 ]
-gradio = ["gradio>=6.9"]
 
 [tool.pytest.ini_options]
 addopts = "-m 'not integration'"
@@ -29,7 +28,6 @@ markers = [
 [tool.taskipy.tasks]
 test = "uv run pytest"
 webservice = "uv run python webservice/main.py"
-gradio = "uv run python app.py"
 
 [dependency-groups]
 dev = [

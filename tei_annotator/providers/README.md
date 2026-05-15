@@ -65,7 +65,7 @@ _ALL_CONNECTORS: list[Connector] = [
 ]
 ```
 
-That's all. The evaluate script, webservice, and Gradio app pick it up automatically.
+That's all. The evaluate script and webservice pick it up automatically.
 
 ---
 

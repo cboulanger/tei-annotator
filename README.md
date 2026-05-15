@@ -1,16 +1,13 @@
 ---
-title: Tei Annotator
-emoji: 🦀
-colorFrom: green
-colorTo: pink
-sdk: gradio
-sdk_version: 6.9.0
-python_version: '3.12'
-app_file: app.py
-hardware: cpu-basic
+title: TEI Annotator
+emoji: 📝
+colorFrom: blue
+colorTo: green
+sdk: docker
+app_port: 7860
 pinned: false
 license: mit
-short_description: Demo for cboulanger/tei-annotator
+short_description: Annotate plain text with TEI XML tags using an LLM backend
 ---
 
 A Python library for annotating plain text with [TEI XML](https://tei-c.org/) tags using a two-stage LLM pipeline.
@@ -220,7 +217,6 @@ FINAL OUTPUT                          (annotated XML)
 ## Demo and webservice
 
 - **HuggingFace demo:** <https://huggingface.co/spaces/cmboulanger/tei-annotator>
-- **`app.py`** — Gradio app for HuggingFace Spaces. See [docs/huggingface-deployment.md](docs/huggingface-deployment.md).
 - **`webservice/`** — FastAPI JSON API + browser UI, all five providers. See [webservice/README.md](webservice/README.md).
 
 ---
