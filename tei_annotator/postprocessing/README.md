@@ -54,14 +54,16 @@ For each `SpanDescriptor`:
    - If not found, fall back to **fuzzy matching** via [rapidfuzz](https://github.com/rapidfuzz/RapidFuzz) with a default similarity threshold of 0.92. Fuzzy-matched spans receive `ResolvedSpan.fuzzy_match = True` and appear in `AnnotationResult.fuzzy_spans` for human review.
    - If neither match succeeds, the span is silently discarded.
 
-2. **Locate text within context** — once the context window is pinned to a position in the source text, do a substring search for `SpanDescriptor.text` within that window.
-   - If not found, the span is discarded.
+2. **Locate text within context** — once the context window is pinned to a position in the source text, do an exact substring search for `SpanDescriptor.text` within that window.
+   - If found, compute `(start, end)` directly and move to step 3.
+   - If not found (e.g. the LLM text has minor whitespace differences from the source, such as `\n` where the source has `\n`+space after a stripped `<lb/>` tag), fall back to a **fuzzy text search**: run the same `_find_context` algorithm against `span.text` directly in the full source. If a match above the threshold is found, the span is accepted with `fuzzy_match = True`; otherwise the span is discarded.
 
-3. **Compute offsets** — the context window's start offset plus the text's offset within the window gives `(start, end)` in the original source text.
+3. **Compute offsets** — the resolved start position combined with the text length gives `(start, end)` in the original source text.
+   - For spans resolved via the fuzzy text fallback, `end` is computed by `_align_end`, which walks the source character-by-character from `start`, advancing in parallel with the LLM text while absorbing any extra whitespace characters in the source (up to 50 extra chars). This handles cases where the source is longer than `len(span.text)` due to stripped markup artefacts.
 
 ### Fuzzy matching details
 
-rapidfuzz's `extractOne` function scores candidate substrings using the `partial_ratio` scorer, which finds the best-matching substring of the target for the query string. The 0.92 threshold was chosen empirically to accept minor OCR errors, whitespace normalisation differences, and Unicode equivalences while rejecting clearly wrong matches.
+The fuzzy search slides a window of `len(query)` characters across the source and scores each position with `fuzz.ratio` (character-level edit distance similarity). The position with the highest score is returned if it meets the threshold. The 0.92 threshold was chosen empirically to accept minor OCR errors, whitespace normalisation differences, and Unicode equivalences while rejecting clearly wrong matches.
 
 ---
 
