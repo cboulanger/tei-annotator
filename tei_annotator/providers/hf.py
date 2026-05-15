@@ -15,14 +15,14 @@ class HFConnector(Connector):
 
     _MODELS = [
         # ── fast ────────────────────────────────────────────────────────────
-        "Qwen/Qwen3-4B",                          # smallest/fastest Qwen3
-        "Qwen/Qwen2.5-7B-Instruct",               # proven instruction-follower
+        "Qwen/Qwen3-8B",                              # 8B, multilingual, fast
+        "meta-llama/Llama-3.1-8B-Instruct",           # 8B, reliable
+        "Qwen/Qwen3-30B-A3B",                         # MoE: only 3B active params
         # ── balanced ────────────────────────────────────────────────────────
-        "Qwen/Qwen3-14B",                         # good quality/speed trade-off
-        "mistralai/Mistral-7B-Instruct-v0.3",     # fast, solid JSON output
+        "meta-llama/Llama-4-Scout-17B-16E-Instruct",  # sparse MoE, good quality
+        "Qwen/Qwen3-14B",                             # solid quality/speed trade-off
         # ── high quality (Pro / premium token) ──────────────────────────────
         "*meta-llama/Llama-3.3-70B-Instruct",
-        "*meta-llama/Llama-3.1-70B-Instruct",
         "*Qwen/Qwen2.5-72B-Instruct",
     ]
 
