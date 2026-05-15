@@ -12,9 +12,11 @@ from .claude import ClaudeConnector
 from .gemini import GeminiConnector
 from .hf import HFConnector
 from .kisski import KISSKIConnector
+from .ollama import OllamaConnector
 from .openai import OpenAIConnector
 
 _ALL_CONNECTORS: list[Connector] = [
+    OllamaConnector(),
     HFConnector(),
     GeminiConnector(),
     KISSKIConnector(),

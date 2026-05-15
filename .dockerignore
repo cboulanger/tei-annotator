@@ -1,0 +1,16 @@
+.git
+.venv
+__pycache__
+*.pyc
+*.pyo
+.pytest_cache
+*.egg-info
+tests/
+scripts/
+docs/
+data/raw/
+.env
+webservice/.env
+webservice/.server.pid
+app.py
+nginx.conf
