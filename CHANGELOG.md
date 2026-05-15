@@ -1,3 +1,15 @@
+# [1.5.0](https://github.com/cboulanger/tei-annotator/compare/v1.4.0...v1.5.0) (2026-05-15)
+
+
+### Bug Fixes
+
+* drop schema-element tags from restore map to prevent invalid nesting ([f047302](https://github.com/cboulanger/tei-annotator/commit/f04730209b69d829eac2a62a50931100f84431f4)), closes [#2](https://github.com/cboulanger/tei-annotator/issues/2) [#4](https://github.com/cboulanger/tei-annotator/issues/4)
+
+
+### Features
+
+* add interactive annotation debugger script ([42ee837](https://github.com/cboulanger/tei-annotator/commit/42ee837f329742ab69154b148f336e3778c43f9c))
+
 # [1.4.0](https://github.com/cboulanger/tei-annotator/compare/v1.3.1...v1.4.0) (2026-05-15)
 
 
