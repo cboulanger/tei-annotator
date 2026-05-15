@@ -1,3 +1,10 @@
+# [1.4.0](https://github.com/cboulanger/tei-annotator/compare/v1.3.1...v1.4.0) (2026-05-15)
+
+
+### Features
+
+* validate injected XML text content matches source after tag stripping ([c749627](https://github.com/cboulanger/tei-annotator/commit/c749627cb5520d834046816a3c60e18cf41063f4))
+
 ## [1.3.1](https://github.com/cboulanger/tei-annotator/compare/v1.3.0...v1.3.1) (2026-05-14)
 
 
