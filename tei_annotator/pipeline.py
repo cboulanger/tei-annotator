@@ -14,7 +14,7 @@ from .models.spans import ResolvedSpan, SpanDescriptor
 from .postprocessing.injector import inject_xml
 from .postprocessing.parser import parse_response
 from .postprocessing.resolver import resolve_spans
-from .postprocessing.validator import validate_spans
+from .postprocessing.validator import validate_output, validate_spans
 from .prompting.builder import build_prompt, make_correction_prompt
 
 
@@ -411,6 +411,7 @@ def annotate(
     log.debug("inject_xml: injecting %d span(s) into plain text", len(deduped))
     annotated_text = inject_xml(plain_text, deduped)
     log.debug("inject_xml: done, annotated length=%d", len(annotated_text))
+    validate_output(annotated_text, plain_text)
 
     # ------------------------------------------------------------------ #
     # STEP 5d (cont.)  Restore original XML tags                          #

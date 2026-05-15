@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import difflib
+import re
+
 from ..models.schema import TEISchema
 from ..models.spans import ResolvedSpan
 
@@ -47,3 +50,22 @@ def validate_spans(
         valid.append(span)
 
     return valid
+
+
+def validate_output(xml: str, source: str) -> None:
+    """Raise ValueError if xml text content differs from source (tags stripped, whitespace normalised)."""
+    def _norm(t: str) -> str:
+        return re.sub(r'\s+', ' ', t).strip()
+
+    got = _norm(re.sub(r'<[^>]+>', '', xml))
+    expected = _norm(source)
+    if got != expected:
+        diff = '\n'.join(
+            difflib.unified_diff(
+                expected.split(), got.split(),
+                fromfile='source', tofile='injected',
+            )
+        )
+        raise ValueError(
+            f"inject_xml text content mismatch — annotated output differs from source.\n{diff}"
+        )
