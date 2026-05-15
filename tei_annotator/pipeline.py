@@ -107,6 +107,12 @@ def _restore_existing_tags(annotated_xml: str, restore_map: list[_TagEntry]) -> 
 
 
 _ENTITY_RE = re.compile(r"&(?:[a-zA-Z][a-zA-Z0-9]*|#[0-9]+|#x[0-9a-fA-F]+);")
+_TAG_NAME_RE = re.compile(r"</?([a-zA-Z][a-zA-Z0-9]*)")
+
+
+def _is_schema_element_tag(tag: str, schema_tags: frozenset[str]) -> bool:
+    m = _TAG_NAME_RE.match(tag)
+    return m is not None and m.group(1) in schema_tags
 
 
 def _escape_bare_ampersands(xml: str) -> str:
@@ -217,6 +223,16 @@ def annotate(
     # STEP 1  Strip existing XML tags; save restoration map               #
     # ------------------------------------------------------------------ #
     plain_text, restore_map = _strip_existing_tags(text)
+
+    # Drop schema-element tags from the restore map: the LLM re-annotates
+    # those from scratch, so restoring them would produce invalid nesting
+    # (e.g. an outer <bibl> wrapper around the LLM's own <bibl> spans).
+    # Non-schema tags (e.g. <lb/>, <pb/>) survive and are re-inserted.
+    _schema_tag_names = frozenset(e.tag for e in schema.elements)
+    restore_map = [
+        e for e in restore_map
+        if not _is_schema_element_tag(e.tag, _schema_tag_names)
+    ]
 
     # ------------------------------------------------------------------ #
     # STEP 2  Optional GLiNER pre-detection pass                          #

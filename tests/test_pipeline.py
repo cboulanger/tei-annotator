@@ -204,7 +204,7 @@ def test_no_duplicate_tags_when_same_element_detected():
                     "element": "bibl",
                     "text": "Smith and Jones (2020)",
                     "context": "See Smith and Jones (2020) for",
-                    "attrs": {"n": "1"},
+                    "attrs": {},
                 }
             ]
         )
@@ -218,7 +218,8 @@ def test_no_duplicate_tags_when_same_element_detected():
         ),
         gliner_model=None,
     )
-    # Should have exactly one opening <bibl> tag, not <bibl><bibl>
+    # Schema-element tags from the input are dropped from the restore map so the
+    # LLM's annotation is the sole source — exactly one <bibl>, not <bibl><bibl>.
     assert result.xml.count("<bibl>") == 1
     assert result.xml.count("</bibl>") == 1
     # Text should not be duplicated
