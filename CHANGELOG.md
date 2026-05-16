@@ -1,3 +1,16 @@
+# [1.6.0](https://github.com/cboulanger/tei-annotator/compare/v1.5.0...v1.6.0) (2026-05-16)
+
+
+### Bug Fixes
+
+* copy README.md into Docker image so hatchling can build the package ([f3dba50](https://github.com/cboulanger/tei-annotator/commit/f3dba502b5f1febf7da14e6b479426d5d0f14b26))
+* replace unavailable/broken HF models with confirmed working ones ([4d0ba65](https://github.com/cboulanger/tei-annotator/commit/4d0ba65b3bb8ec8e98eeaea3ca6e357ab095a66a))
+
+
+### Features
+
+* add faster HF models and increase default LLM timeout to 180s ([6122b3e](https://github.com/cboulanger/tei-annotator/commit/6122b3e0180e70a32b19994cf6bfd056311ae5a3))
+
 # [1.5.0](https://github.com/cboulanger/tei-annotator/compare/v1.4.0...v1.5.0) (2026-05-15)
 
 
