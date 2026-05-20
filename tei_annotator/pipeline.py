@@ -48,8 +48,13 @@ def _strip_existing_tags(text: str) -> tuple[str, list[_TagEntry]]:
         if text[i] == "<":
             j = text.find(">", i)
             if j != -1:
-                restore.append(_TagEntry(plain_offset=len(plain), tag=text[i : j + 1]))
-                i = j + 1
+                candidate = text[i : j + 1]
+                if _VALID_XML_TAG_RE.fullmatch(candidate):
+                    restore.append(_TagEntry(plain_offset=len(plain), tag=candidate))
+                    i = j + 1
+                else:
+                    plain.append(text[i])
+                    i += 1
             else:
                 plain.append(text[i])
                 i += 1
@@ -108,6 +113,13 @@ def _restore_existing_tags(annotated_xml: str, restore_map: list[_TagEntry]) -> 
 
 _ENTITY_RE = re.compile(r"&(?:[a-zA-Z][a-zA-Z0-9]*|#[0-9]+|#x[0-9a-fA-F]+);")
 _TAG_NAME_RE = re.compile(r"</?([a-zA-Z][a-zA-Z0-9]*)")
+# Matches a syntactically valid XML tag: processing instruction/declaration (<?…>, <!…>)
+# or an element open/close tag whose name consists only of legal XML name characters
+# ([a-zA-Z_:] start, then [a-zA-Z0-9_:.-]*).  Crucially, '/' is illegal in an XML name,
+# so angle-bracket-wrapped URLs like <https://…> do NOT match.
+_VALID_XML_TAG_RE = re.compile(
+    r"<(?:[?!]|/?[a-zA-Z_:][a-zA-Z0-9_:.-]*(?:\s[^<>]*)?/?)>"
+)
 
 
 def _is_schema_element_tag(tag: str, schema_tags: frozenset[str]) -> bool:

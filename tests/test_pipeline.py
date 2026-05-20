@@ -226,6 +226,54 @@ def test_no_duplicate_tags_when_same_element_detected():
     assert result.xml.count("Smith and Jones (2020)") == 1
 
 
+def test_strip_existing_tags_preserves_angle_bracket_urls():
+    """URLs in angle brackets (e.g. <https://...>) must NOT be stripped as XML tags.
+
+    The tag name character set for XML excludes '/', so 'https://...' is not a
+    valid element name.  _strip_existing_tags must leave such angle-bracket
+    sequences as plain text rather than recording them as stripped XML tags.
+    """
+    from tei_annotator.pipeline import _strip_existing_tags
+
+    text = "See (<https://www.example.com/page> 2019)."
+    plain, restore_map = _strip_existing_tags(text)
+
+    assert "<https://www.example.com/page>" in plain
+    assert restore_map == []
+
+
+def test_strip_existing_tags_preserves_url_alongside_real_xml():
+    """Real XML tags must still be stripped even when angle-bracket URLs are present."""
+    from tei_annotator.pipeline import _strip_existing_tags
+
+    text = "See <b>(<https://www.example.com/page> 2019)</b>."
+    plain, restore_map = _strip_existing_tags(text)
+
+    assert "<https://www.example.com/page>" in plain
+    assert "<b>" not in plain
+    assert "</b>" not in plain
+    assert len(restore_map) == 2
+
+
+def test_annotate_preserves_angle_bracket_urls():
+    """The full pipeline must not drop angle-bracket-enclosed URLs."""
+
+    def _no_spans(_prompt):
+        return json.dumps([])
+
+    text = "See (<https://www.example.com/page> 2019)."
+    result = annotate(
+        text=text,
+        schema=_schema(),
+        endpoint=EndpointConfig(
+            capability=EndpointCapability.JSON_ENFORCED,
+            call_fn=_no_spans,
+        ),
+        gliner_model=None,
+    )
+    assert "https://www.example.com/page" in result.xml
+
+
 def test_overlapping_spans_from_chunks_are_merged():
     """
     When overlapping chunks produce overlapping spans with the same element,

@@ -6,6 +6,12 @@ import re
 from ..models.schema import TEISchema
 from ..models.spans import ResolvedSpan
 
+# Same pattern as pipeline._VALID_XML_TAG_RE — kept in sync manually to avoid a
+# circular import (pipeline imports this module).
+_VALID_XML_TAG_RE = re.compile(
+    r"<(?:[?!]|/?[a-zA-Z_:][a-zA-Z0-9_:.-]*(?:\s[^<>]*)?/?)>"
+)
+
 
 def validate_spans(
     spans: list[ResolvedSpan],
@@ -57,7 +63,7 @@ def validate_output(xml: str, source: str) -> None:
     def _norm(t: str) -> str:
         return re.sub(r'\s+', ' ', t).strip()
 
-    got = _norm(re.sub(r'<[^>]+>', '', xml))
+    got = _norm(_VALID_XML_TAG_RE.sub('', xml))
     expected = _norm(source)
     if got != expected:
         diff = '\n'.join(

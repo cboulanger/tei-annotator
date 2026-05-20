@@ -19,6 +19,8 @@
               9. Short cross-references (Id., Ibid., supra note N)
              10. Multi-line citations (line breaks are NOT split points)
              11. References in languages other than English
+             12. URL enclosed in angle brackets (<https://…>) — must not be
+                 confused with an XML tag during stripping
         -->
         <fileDesc xml:id="_bibl-reference-segmenter-examples"/>
     </teiHeader>
@@ -110,6 +112,15 @@ FOOTNOTES<lb/>
 <bibl><label>2</label> H. Schröder, 'Zur Kulturspezifik von Tabus', in C. Benthien and O. Gutjahr (eds), TABU: Interkulturalität<lb/> und Gender (Munich, 2008), pp. 51-70, here p. 58.<lb/> </bibl>
 <bibl><label>3</label> Commission Inter-IREM Collège &amp; Commission Inter-IREM Statistiques (2012). Probabilités au collège.<lb/> Dans Brochure APMEP n°198.<lb/> </bibl>
 <bibl><label>4</label> Decreto No 8-2016 mediante el cual se decreta la Ley de Búsqueda Inmediata de Mujeres Desaparecidas<lb/> (Guatemala).<lb/> </bibl>
+        </listBibl>
+
+        <!-- ============================================================
+             Group 10: URL enclosed in angle-brackets inside a footnote.
+             The raw text contains <https://…> (RFC 3986 angle-bracket form)
+             which must not be mistaken for an XML tag by the pipeline.
+             ============================================================ -->
+        <listBibl>
+<bibl><label>118</label> See B Duffy and others, Divided Britain? Findings from the 2019 Survey (&lt;https://www.kcl.ac.uk/policy-institute/assets/divided-britain.pdf&gt; 2019, accessed 25 January 2022) 67.<lb/> </bibl>
         </listBibl>
     </text>
 </TEI>
