@@ -13,15 +13,13 @@ from __future__ import annotations
 
 
 def _build_bibl():
-    from tei_annotator.schemas.bibl import build_bibl_schema
-    return build_bibl_schema()
+    from tei_annotator.schemas.bibl import build_schema
+    return build_schema()
 
 
 def _build_bibl_reference_segmenter():
-    from tei_annotator.schemas.bibl_reference_segmenter import (
-        build_bibl_reference_segmenter_schema,
-    )
-    return build_bibl_reference_segmenter_schema()
+    from tei_annotator.schemas.bibl_reference_segmenter import build_schema
+    return build_schema()
 
 
 SCHEMA_REGISTRY: dict[str, dict] = {

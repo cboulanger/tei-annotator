@@ -10,11 +10,9 @@ spans, each optionally beginning with a <label> span.
 Evaluation usage
 ----------------
     from tei_annotator.evaluation import evaluate_file
-    from tei_annotator.schemas.bibl_reference_segmenter import (
-        build_bibl_reference_segmenter_schema,
-    )
+    from tei_annotator.schemas.bibl_reference_segmenter import build_schema
 
-    schema = build_bibl_reference_segmenter_schema()
+    schema = build_schema()
     per_record, agg = evaluate_file(
         gold_xml_path="data/grobid-batch-1/tei/...",
         schema=schema,
@@ -27,7 +25,7 @@ Evaluation usage
 from __future__ import annotations
 
 
-def build_bibl_reference_segmenter_schema():
+def build_schema():
     from tei_annotator.models.schema import TEIAttribute, TEIElement, TEISchema
 
     def attr(name: str, desc: str, allowed: list[str] | None = None) -> TEIAttribute:

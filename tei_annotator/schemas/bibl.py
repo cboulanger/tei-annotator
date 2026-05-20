@@ -8,7 +8,7 @@ shared between the evaluation script and the webservice.
 from __future__ import annotations
 
 
-def build_bibl_schema():
+def build_schema():
     from tei_annotator.models.schema import TEIAttribute, TEIElement, TEISchema
 
     def attr(name: str, desc: str, allowed: list[str] | None = None) -> TEIAttribute:
