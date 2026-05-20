@@ -109,6 +109,46 @@ def test_fuzzy_text_fallback_when_newline_space_mismatch():
     )
 
 
+def test_find_in_window_prefers_isolated_over_left_boundary_only():
+    """
+    When span.text appears in the window both as part of a larger token
+    (preceded by whitespace but followed by alphanumeric) and as a truly
+    standalone token (preceded AND followed by whitespace), the resolver
+    must prefer the fully isolated occurrence.
+
+    Regression: label "3" in "2 Ibid, 321. \n3 Ibid, 320." was resolved
+    to the "3" inside "321" (preceded by space but followed by "2") rather
+    than the standalone "\n3 Ibid" (preceded by newline, followed by space).
+    """
+    source = "fn 2 Ibid, 321. \n3 Ibid, 320."
+    # Context window that contains two occurrences of "3":
+    #   position 11: "3" inside "321" — preceded by " ", followed by "2"
+    #   position 18: "3" in "\n3 Ibid" — preceded by "\n", followed by " "
+    span = _span("label", "3", "Ibid, 321. \n3 Ibid, 320.")
+    resolved = resolve_spans(source, [span])
+    assert len(resolved) == 1
+    # Must pick the standalone "3", not the one inside "321"
+    assert resolved[0].start == source.index("\n3") + 1  # the "\n3" occurrence
+
+
+def test_find_in_window_prefers_left_boundary_over_mid_word():
+    """
+    When span.text appears only mid-word (no isolated match), the resolver
+    must still prefer a left-boundary occurrence over a completely embedded one.
+
+    Regression: label "7" in "4SZ2-47A9 \n7 Feinstein" was resolved to
+    the "7" inside "47A9" (preceded by "4", not whitespace) instead of
+    the standalone "\n7 Feinstein".
+    """
+    source = "https://perma.cc/4SZ2-47A9 \n7 Feinstein"
+    # Context has "7" twice: inside "47A9" (NOT a left boundary) and as "\n7"
+    span = _span("label", "7", "4SZ2-47A9 \n7 Feinstein")
+    resolved = resolve_spans(source, [span])
+    assert len(resolved) == 1
+    # Must pick the standalone "\n7", not the one inside "47A9"
+    assert resolved[0].start == source.index("\n7") + 1  # the "\n7" occurrence
+
+
 def test_direct_fallback_when_fuzzy_context_misses():
     """
     When context fuzzy-matches but text is not in the matched window,

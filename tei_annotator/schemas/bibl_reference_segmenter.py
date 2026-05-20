@@ -159,9 +159,16 @@ def build_bibl_reference_segmenter_schema():
                     "precedes a formal citation.  Sources without named authors, such as "
                     "websites (title + URL), are also valid bibliographic references.  Standalone commentary that refers to no specific reference "
                     "or bridges two references should be included in the FOLLOWING reference's "
-                    "span.  If the reference begins with a numeric or alphanumeric label, the "
-                    "very first nested span inside this 'bibl' span MUST be a 'label' span — "
-                    "never emit the label text as bare untagged text."
+                    "span.  If the reference begins with a numeric or alphanumeric label "
+                    "(including a special-character label such as '*'), the very first nested "
+                    "span inside this 'bibl' span MUST be a 'label' span — never emit the "
+                    "label text as bare untagged text.  "
+                    "CRITICAL: A reference that starts with a special-character label such "
+                    "as '*' still requires a full 'bibl' span.  "
+                    "Example: '* R. Diana, Migrations of Concepts, Brepols, 2023.' → "
+                    "bibl span = '* R. Diana, Migrations of Concepts, Brepols, 2023.' "
+                    "containing label span = '*'.  Never emit only the label span without "
+                    "an enclosing bibl span."
                 ),
                 allowed_children=["label"],
                 attributes=[],

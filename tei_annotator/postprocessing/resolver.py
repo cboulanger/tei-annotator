@@ -73,6 +73,41 @@ def _find_context(
     return None
 
 
+def _find_in_window(window: str, text: str) -> int:
+    """
+    Return the start index of *text* in *window*, using a preference order:
+
+    1. Fully isolated — preceded AND followed by whitespace (or at window edges).
+    2. Left-boundary only — preceded by whitespace but not followed.
+    3. Any first occurrence (fallback).
+
+    This prevents resolving a short label token (e.g. "3") to a position
+    inside a larger token (e.g. the "3" in "321." which is preceded by a
+    space but followed by "2") when a truly standalone occurrence exists later.
+    Returns -1 when *text* is not in *window*.
+    """
+    pos = 0
+    first_match = -1
+    left_boundary = -1
+    while True:
+        pos = window.find(text, pos)
+        if pos == -1:
+            break
+        if first_match == -1:
+            first_match = pos
+        end = pos + len(text)
+        preceded = pos == 0 or window[pos - 1] in " \t\n\r"
+        followed = end >= len(window) or window[end] in " \t\n\r"
+        if preceded and followed:
+            return pos  # fully isolated — best possible match
+        if preceded and left_boundary == -1:
+            left_boundary = pos
+        pos += 1
+    if left_boundary != -1:
+        return left_boundary
+    return first_match
+
+
 def resolve_spans(
     source: str,
     spans: list[SpanDescriptor],
@@ -99,9 +134,12 @@ def resolve_spans(
 
         ctx_start, context_is_fuzzy = result
 
-        # Find span.text within the located context window
+        # Find span.text within the located context window.
+        # When multiple occurrences exist, prefer one that starts at a word
+        # boundary (preceded by whitespace or start of window) to avoid
+        # landing on the same short token embedded inside a URL or word.
         window = source[ctx_start : ctx_start + len(span.context)]
-        text_pos = window.find(span.text)
+        text_pos = _find_in_window(window, span.text)
         if text_pos == -1:
             # The fuzzy context match may have landed slightly off, or the LLM
             # text has minor whitespace differences from the source (e.g. \n vs
