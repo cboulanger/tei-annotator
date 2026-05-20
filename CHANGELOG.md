@@ -1,3 +1,14 @@
+## [1.6.1](https://github.com/cboulanger/tei-annotator/compare/v1.6.0...v1.6.1) (2026-05-20)
+
+
+### Bug Fixes
+
+* label+bibl missing for footnotes with prose commentary (closes [#5](https://github.com/cboulanger/tei-annotator/issues/5)) ([3d8ef05](https://github.com/cboulanger/tei-annotator/commit/3d8ef05a11c69b929e0da9b92ffbb3f915e481f0)), closes [#6](https://github.com/cboulanger/tei-annotator/issues/6)
+* **metrics:** extend cert=low union-match to chains of 3+ spans ([c6dd1c0](https://github.com/cboulanger/tei-annotator/commit/c6dd1c0d50f692411fe13c736e97ed507a66da8d))
+* **pipeline:** don't strip angle-bracket URLs as XML tags ([3292283](https://github.com/cboulanger/tei-annotator/commit/32922834f428cb0b6b1dc6e2038574aa3655369c))
+* **resolver:** prefer fully-isolated token matches to avoid mid-token label resolution ([c2b1ba4](https://github.com/cboulanger/tei-annotator/commit/c2b1ba4675913365e22365ab2ba7944bbdcc07d4))
+* **schema:** strengthen orphan-label prohibition and mark Robins sub-refs cert=low ([52bbc73](https://github.com/cboulanger/tei-annotator/commit/52bbc73b9dd80bb9539e0e882f5714b3d2b19102))
+
 # [1.6.0](https://github.com/cboulanger/tei-annotator/compare/v1.5.0...v1.6.0) (2026-05-16)
 
 
