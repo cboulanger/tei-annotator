@@ -10,6 +10,14 @@ class TEIAttribute:
     required: bool = False
     allowed_values: list[str] | None = None
 
+    def to_dict(self) -> dict:
+        d: dict = {"name": self.name, "description": self.description}
+        if self.required:
+            d["required"] = True
+        if self.allowed_values is not None:
+            d["allowed_values"] = self.allowed_values
+        return d
+
 
 @dataclass
 class TEIElement:
@@ -17,6 +25,14 @@ class TEIElement:
     description: str
     allowed_children: list[str] = field(default_factory=list)
     attributes: list[TEIAttribute] = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        return {
+            "tag": self.tag,
+            "description": self.description,
+            "allowed_children": self.allowed_children,
+            "attributes": [a.to_dict() for a in self.attributes],
+        }
 
 
 @dataclass
@@ -29,3 +45,9 @@ class TEISchema:
             if elem.tag == tag:
                 return elem
         return None
+
+    def to_dict(self) -> dict:
+        return {
+            "elements": [e.to_dict() for e in self.elements],
+            "rules": self.rules,
+        }
