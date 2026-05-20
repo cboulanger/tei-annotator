@@ -369,6 +369,43 @@ class TestCertLowUnionMatch:
         assert r.micro_fn == 2
         assert r.micro_tp == 0
 
+    def test_three_way_chain_merge_scores_as_three_tps(self):
+        """Model merges G1+G2(cert=low)+G3(cert=low) → TP=3, FP=0, FN=0."""
+        g1 = EvaluationSpan("bibl", 0, 10, "Robins et al;")
+        g2 = EvaluationSpan("bibl", 10, 20, "Boss et al; ", attrs={"cert": "low"})
+        g3 = EvaluationSpan("bibl", 20, 30, "Kovras et al.", attrs={"cert": "low"})
+        p_merged = EvaluationSpan("bibl", 0, 30, "Robins et al;Boss et al; Kovras et al.")
+        r = compute_metrics([g1, g2, g3], [p_merged])
+        assert r.micro_tp == 3
+        assert r.micro_fp == 0
+        assert r.micro_fn == 0
+        assert r.micro_f1 == pytest.approx(1.0)
+
+    def test_five_way_chain_merge_scores_as_five_tps(self):
+        """Model merges 5 consecutive spans (all after first have cert=low) → TP=5."""
+        texts = ["A;", "B;", "C;", "D;", "E."]
+        spans = [EvaluationSpan("bibl", i * 3, i * 3 + 2, texts[i]) for i in range(5)]
+        for s in spans[1:]:
+            s.attrs["cert"] = "low"
+        merged_text = "".join(texts)
+        p_merged = EvaluationSpan("bibl", 0, len(merged_text), merged_text)
+        r = compute_metrics(spans, [p_merged])
+        assert r.micro_tp == 5
+        assert r.micro_fp == 0
+        assert r.micro_fn == 0
+        assert r.micro_f1 == pytest.approx(1.0)
+
+    def test_chain_pass_does_not_fire_for_partial_merge(self):
+        """Pred covers only G1+G2 of a 3-chain → pair pass fires, G3 remains FN."""
+        g1 = EvaluationSpan("bibl", 0, 10, "Robins et al;")
+        g2 = EvaluationSpan("bibl", 10, 20, "Boss et al; ", attrs={"cert": "low"})
+        g3 = EvaluationSpan("bibl", 20, 30, "Kovras et al.", attrs={"cert": "low"})
+        p_partial = EvaluationSpan("bibl", 0, 20, "Robins et al;Boss et al; ")
+        r = compute_metrics([g1, g2, g3], [p_partial])
+        assert r.micro_tp == 2   # G1 + G2 via pair pass
+        assert r.micro_fp == 0
+        assert r.micro_fn == 1   # G3 unmatched
+
 
 # ---------------------------------------------------------------------------
 # evaluator — evaluate_element (mocked endpoint)

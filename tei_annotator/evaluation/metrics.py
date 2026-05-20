@@ -309,11 +309,14 @@ def compute_metrics(
         gold_spans, pred_spans, mode, overlap_threshold
     )
 
-    # --- cert="low" union-match pass ---
-    # Precondition: adjacent gold spans G1, G2 (same element, G2.cert=="low"),
-    # both unmatched after standard matching.  If an unmatched pred span P
-    # has normalised text equal to the concatenation of G1 and G2, count
-    # all three as true positives.
+    # --- cert="low" union-match passes ---
+    # When a gold span has cert="low", the boundary between it and the
+    # preceding same-element span is considered uncertain: a model that merges
+    # them into a single predicted span is not penalised.
+    #
+    # Pass 1 (pair pass): handles adjacent pairs (G1, G2) where G2.cert=="low".
+    # Pass 2 (chain pass): handles longer runs [G_anchor, G2(low), G3(low), ...]
+    #   of length ≥ 3 where a single predicted span covers the full union.
     gold_matched_idx: set[int] = {
         next(i for i, g in enumerate(gold_spans) if g is m.gold)
         for m in matched
@@ -325,6 +328,7 @@ def compute_metrics(
     cert_tp_gold: set[int] = set()
     cert_tp_pred: set[int] = set()
 
+    # Pass 1: pair pass
     for i in range(1, len(gold_spans)):
         g2 = gold_spans[i]
         if g2.attrs.get("cert") != "low":
@@ -346,6 +350,46 @@ def compute_metrics(
                 cert_tp_gold.update({i - 1, i})
                 cert_tp_pred.add(j)
                 break
+
+    # Pass 2: chain pass — maximal runs of length ≥ 3
+    # A chain starts at an unmatched gold span without cert="low" (anchor) and
+    # extends through consecutive unmatched cert="low" spans of the same element.
+    i = 0
+    while i < len(gold_spans):
+        g_anchor = gold_spans[i]
+        if (
+            i in gold_matched_idx
+            or i in cert_tp_gold
+            or g_anchor.attrs.get("cert") == "low"
+        ):
+            i += 1
+            continue
+        chain: list[int] = [i]
+        j = i + 1
+        while j < len(gold_spans):
+            gj = gold_spans[j]
+            if (
+                gj.attrs.get("cert") == "low"
+                and gj.element == g_anchor.element
+                and j not in gold_matched_idx
+                and j not in cert_tp_gold
+            ):
+                chain.append(j)
+                j += 1
+            else:
+                break
+        if len(chain) >= 3:
+            union_text = " ".join("".join(gold_spans[k].text for k in chain).split())
+            for pi, p in enumerate(pred_spans):
+                if pi in pred_matched_idx or pi in cert_tp_pred:
+                    continue
+                if p.element != g_anchor.element:
+                    continue
+                if p.normalized_text == union_text:
+                    cert_tp_gold.update(chain)
+                    cert_tp_pred.add(pi)
+                    break
+        i += 1
 
     # Rebuild unmatched lists, excluding cert-resolved spans
     resolved_gold_ids = {id(gold_spans[i]) for i in cert_tp_gold}
