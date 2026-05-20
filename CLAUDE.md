@@ -108,6 +108,8 @@ Key flags: `--provider`, `--model`, `--schema`, `--gold-file`, `--max-items`,
 
 **`/optimize-element-descriptions`** — iterative workflow for improving schema prompt rules and element descriptions to maximise F1 against a gold standard. Includes guidance for handling genuinely ambiguous gold boundaries via `cert="low"`. See [.claude/skills/optimize-element-descriptions/SKILL.md](.claude/skills/optimize-element-descriptions/SKILL.md).
 
+**`/fix-annotation-from-issues`** — reproduces a reported annotation failure from a GitHub issue using `debug_annotation.py`, diagnoses the root cause, improves the relevant schema descriptions, and closes the issue once fixed. See [.claude/skills/fix-annotation-from-issues/SKILL.md](.claude/skills/fix-annotation-from-issues/SKILL.md).
+
 ---
 
 ## Documentation
