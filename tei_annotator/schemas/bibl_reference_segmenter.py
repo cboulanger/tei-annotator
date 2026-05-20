@@ -58,13 +58,25 @@ def build_bibl_reference_segmenter_schema():
             "from the label to the end of the last citation — must be divided into one or more "
             "'bibl' spans.  No text between the opening label and the end of the footnote entry "
             "may be left as bare unwrapped text.  If the text immediately following the label "
-            "is commentary rather than a formal citation, wrap it in a 'bibl' span anyway.",
+            "is commentary rather than a formal citation, wrap it in a 'bibl' span anyway.  "
+            "Step-by-step example — "
+            "'57 Article 28 of the ICESCR expressly provides that \"...\". See also HUMAN RIGHTS COMMITTEE, GENERAL COMMENT 31: ..., [4] (2004).' → "
+            "the leading '57' is a label; the following sentence is pure commentary (not a formal citation); "
+            "the 'See also' clause introduces a citation but does NOT start a new bibl because the "
+            "preceding commentary contains no complete formal citation.  "
+            "Correct output: ONE 'bibl' span covering the entire entry from '57' to '(2004).', "
+            "with a nested 'label' span text = '57'.  "
+            "WRONG: leaving '57 Article 28...' as bare text and emitting only 'See also HUMAN RIGHTS COMMITTEE...' as a bibl.",
             "If a reference begins with a numeric or alphanumeric label (footnote number, "
             "endnote number, or reference key), emit a 'label' span covering that label — "
             "including any brackets, parentheses, or trailing period that are part of the "
             "label format — as the very first span inside the enclosing 'bibl' span.  "
             "The whitespace or dash that separates the label from the first author is NOT "
-            "part of the label span.",
+            "part of the label span.  "
+            "IMPORTANT: A plain integer at the very start of a footnote or endnote entry is "
+            "ALWAYS a label, even when what follows is substantive prose rather than an "
+            "immediate author name or formal citation.  The number still identifies the "
+            "entry and must be tagged as a 'label' inside the enclosing 'bibl'.",
             "Labels take many forms: plain integers ('1', '42'), integers with a trailing "
             "period ('1.', '42.'), integers in square brackets ('[1]', '[42]'), integers in "
             "parentheses ('(1)', '(42)'), letter-number codes ('5a'), or special characters "
@@ -90,7 +102,11 @@ def build_bibl_reference_segmenter_schema():
             "EXCEPTION: if the immediately preceding text is pure commentary that contains "
             "NO complete formal citation (e.g. a sentence mentioning an author in passing "
             "without a title or publisher), do NOT start a new bibl at 'see' or 'see also' — "
-            "include that phrase and what follows in the same bibl as the commentary.",
+            "include that phrase and what follows in the SAME bibl that covers the commentary.  "
+            "The bibl must begin at the very start of the commentary (or at the label if one "
+            "precedes it), NOT at the 'see also' phrase.  "
+            "Leaving the commentary as bare unwrapped text while making only the 'see also' "
+            "clause into a bibl is always wrong.",
             "Standalone commentary that does not directly refer to any specific reference, "
             "or that bridges two different references, should be included in the span that "
             "covers the FOLLOWING reference.",
@@ -111,6 +127,16 @@ def build_bibl_reference_segmenter_schema():
             "no 'label' spans are emitted.",
             "Do NOT emit a 'label' span when the leading text is an author's surname "
             "(ALL-CAPS or mixed-case) rather than a numeric or alphanumeric code.",
+            "CRITICAL: A number or character that is embedded inside a URL, a word, "
+            "or any non-whitespace alphanumeric string is NEVER a label.  "
+            "A label must be a completely standalone token at the very start of a "
+            "reference entry — it must be preceded by whitespace or the very start "
+            "of the input, and followed by whitespace before the reference text.  "
+            "Example of what is NOT a label: the digit '7' inside the URL path "
+            "'https://perma.cc/4SZ2-47A9' — even if a line break appears nearby, "
+            "that '7' is part of the URL string and must never be tagged as a label.  "
+            "Only tag '7' as a label when it appears as a free-standing token "
+            "at the start of a footnote entry, e.g. '7 Feinstein & Wood, ...'.",
         ],
         elements=[
             TEIElement(
@@ -147,10 +173,21 @@ def build_bibl_reference_segmenter_schema():
                     "identifies or numbers it.  Typical forms: a plain integer ('17'), an "
                     "integer with a trailing period ('17.'), an integer in square brackets "
                     "('[77]', '[ACL30]'), an integer in parentheses ('(3)'), a letter-number "
-                    "code ('5a'), or a special character ('*').  The separator that follows "
-                    "the label (period, dash, space, closing bracket) is NOT part of the "
-                    "label.  A label is always a number or short code at the very beginning "
-                    "of a reference — never a word, name, or sentence fragment.  "
+                    "code ('5a'), or a special character ('*').  "
+                    "CRITICAL: A lone asterisk '*' at the very start of a reference IS a "
+                    "valid label and MUST be tagged.  "
+                    "Example: '* R. Diana, Migrations of Concepts...' → emit a 'label' span "
+                    "with text='*' as the first span inside the enclosing 'bibl' span.  "
+                    "The separator that follows the label (period, dash, space, closing "
+                    "bracket) is NOT part of the label.  "
+                    "A label is always a standalone number or short code at the very "
+                    "beginning of a reference — never a word, name, or sentence fragment, "
+                    "and never a number embedded inside a URL or alphanumeric string "
+                    "(see general rules for the URL constraint).  "
+                    "A plain integer at the very start of a footnote entry is ALWAYS a label "
+                    "even when what follows is substantive prose rather than an immediate "
+                    "author name or citation — e.g. '57 Article 28 of the ICESCR...' → "
+                    "label = '57'.  "
                     "CRITICAL: A 'label' span MUST ALWAYS appear as the first nested span "
                     "inside a 'bibl' span.  Emitting a label as bare text outside a 'bibl' "
                     "span is always wrong.  If you are unsure how to divide the content "
