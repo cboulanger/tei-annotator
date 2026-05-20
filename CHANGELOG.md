@@ -1,3 +1,10 @@
+# [1.7.0](https://github.com/cboulanger/tei-annotator/compare/v1.6.1...v1.7.0) (2026-05-20)
+
+
+### Features
+
+* Add `to_dict()` to schema dataclasses ([ee5b157](https://github.com/cboulanger/tei-annotator/commit/ee5b15756a24f9168d7eb02d057458a602829d47))
+
 ## [1.6.1](https://github.com/cboulanger/tei-annotator/compare/v1.6.0...v1.6.1) (2026-05-20)
 
 

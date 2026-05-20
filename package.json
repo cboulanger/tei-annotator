@@ -1,6 +1,6 @@
 {
   "name": "tei-annotator",
-  "version": "1.6.1",
+  "version": "1.7.0",
   "description": "TEI XML annotation library using LLM pipelines",
   "license": "MIT",
   "private": true,
