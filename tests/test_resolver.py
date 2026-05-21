@@ -166,3 +166,77 @@ def test_direct_fallback_when_fuzzy_context_misses():
     resolved = resolve_spans(source, [span])
     assert len(resolved) == 1
     assert source[resolved[0].start:resolved[0].end] == text
+
+
+# ---------------------------------------------------------------------------
+# Entity-encoding mismatch tests
+#
+# Root cause: lxml's itertext() decodes &amp; → & when extracting plain text
+# from corpus files, but the LLM re-encodes & → &amp; in its JSON response.
+# The resolver must bridge this mismatch without changing source text.
+# ---------------------------------------------------------------------------
+
+def test_entity_decoded_source_llm_encoded_span():
+    """Source has bare & (decoded by XML parser); LLM emits &amp; in span."""
+    source = "Innovation & Skills [2013] UKEAT/0548/12/KN."
+    span = _span(
+        "bibl",
+        "Innovation &amp; Skills [2013] UKEAT/0548/12/KN.",
+        "Innovation &amp; Skills [2013] UKEAT/0548/12/KN.",
+    )
+    resolved = resolve_spans(source, [span])
+    assert len(resolved) == 1
+    assert source[resolved[0].start : resolved[0].end] == "Innovation & Skills [2013] UKEAT/0548/12/KN."
+
+
+def test_entity_mismatch_context_longer_than_source():
+    """When &amp; in context makes len(context) > len(source), must still resolve."""
+    source = "A & B"          # 5 chars
+    # span context is 9 chars (&amp; instead of &) — currently triggers the
+    # win > len(source) early-exit bail-out in _find_context
+    span = _span("note", "A &amp; B", "A &amp; B")
+    resolved = resolve_spans(source, [span])
+    assert len(resolved) == 1
+    assert source[resolved[0].start : resolved[0].end] == "A & B"
+
+
+def test_entity_literal_in_source_regression():
+    """Source has literal &amp; (debug-script path); LLM copies it as-is. Must still work."""
+    source = "Innovation &amp; Skills [2013] UKEAT/0548/12/KN."
+    span = _span(
+        "bibl",
+        "Innovation &amp; Skills [2013] UKEAT/0548/12/KN.",
+        "Innovation &amp; Skills [2013] UKEAT/0548/12/KN.",
+    )
+    resolved = resolve_spans(source, [span])
+    assert len(resolved) == 1
+    assert source[resolved[0].start : resolved[0].end] == "Innovation &amp; Skills [2013] UKEAT/0548/12/KN."
+
+
+def test_entity_mismatch_in_multi_span_source():
+    """Entity mismatch in one span must not prevent other spans from resolving."""
+    source = "54 ibid [33]. 58 USDAW v Ethel Austin Ltd, Innovation & Skills [2013] UKEAT/0548."
+    full_ctx = "54 ibid [33]. 58 USDAW v Ethel Austin Ltd, Innovation &amp; Skills [2013] UKEAT/0548."
+    spans = [
+        _span("bibl", "54 ibid [33].", "54 ibid [33]. 58 USDAW v Ethel Austin Ltd"),
+        _span(
+            "bibl",
+            "58 USDAW v Ethel Austin Ltd, Innovation &amp; Skills [2013] UKEAT/0548.",
+            full_ctx,
+        ),
+    ]
+    resolved = resolve_spans(source, spans)
+    assert len(resolved) == 2
+    assert source[resolved[0].start : resolved[0].end] == "54 ibid [33]."
+    assert source[resolved[1].start : resolved[1].end] == (
+        "58 USDAW v Ethel Austin Ltd, Innovation & Skills [2013] UKEAT/0548."
+    )
+
+
+def test_multiple_entity_mismatches():
+    """Multiple & in source decoded, LLM emits &amp; for each."""
+    source = "A & B and C & D"
+    span = _span("note", "A &amp; B and C &amp; D", "A &amp; B and C &amp; D")
+    resolved = resolve_spans(source, [span])
+    assert len(resolved) == 1
+    assert source[resolved[0].start : resolved[0].end] == "A & B and C & D"
