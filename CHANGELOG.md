@@ -1,3 +1,10 @@
+## [1.7.1](https://github.com/cboulanger/tei-annotator/compare/v1.7.0...v1.7.1) (2026-05-21)
+
+
+### Bug Fixes
+
+* **schema:** handle legal case citations and 'Including' in bibl-reference-segmenter ([2afc22e](https://github.com/cboulanger/tei-annotator/commit/2afc22ee3418e0d2eae9a5eddf6221c664182184))
+
 # [1.7.0](https://github.com/cboulanger/tei-annotator/compare/v1.6.1...v1.7.0) (2026-05-20)
 
 
