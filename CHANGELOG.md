@@ -1,3 +1,10 @@
+## [1.7.2](https://github.com/cboulanger/tei-annotator/compare/v1.7.1...v1.7.2) (2026-05-21)
+
+
+### Bug Fixes
+
+* **resolver:** handle &amp; / & entity mismatch between XML parser and LLM ([f69d182](https://github.com/cboulanger/tei-annotator/commit/f69d182bd831e83f168d722654da7d3daf8f3f19))
+
 ## [1.7.1](https://github.com/cboulanger/tei-annotator/compare/v1.7.0...v1.7.1) (2026-05-21)
 
 
