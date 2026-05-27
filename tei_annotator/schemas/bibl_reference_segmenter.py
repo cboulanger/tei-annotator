@@ -34,19 +34,20 @@ def build_schema():
     return TEISchema(
         rules=[
             "Mark each distinct bibliographic reference as a 'bibl' span.  A new reference "
-            "typically begins with an author's last name (often in ALL-CAPS or inverted "
+            "typically begins with an author's name (often in ALL-CAPS or inverted "
             "'SURNAME, First' form) or with an introductory phrase such as 'Cf.', 'See', "
-            "'Ver também:', 'Nesse sentido:', 'Ibidem', 'op. cit.'.",
+            "'Ver também:', 'Nesse sentido:', or with placeholder expressions such as 'Ibidem', 'op. cit.', or 'ders.'.",
             "CRITICAL: A footnote or endnote that cites multiple separate works — typically "
             "separated by a semicolon followed by a new author name, or by a period followed "
-            "by a new author name in inverted/capitalised form — produces MULTIPLE 'bibl' "
+            "by a new author name form — produces MULTIPLE 'bibl' "
             "spans, one per cited work.  Only the FIRST 'bibl' in the footnote carries the "
-            "'label'; the remaining 'bibl' spans for the same footnote have no label.  "
+            "'label'; the remaining 'bibl' spans for the same footnote have no label."
             "This also applies to legal case citations: a footnote that lists multiple court "
             "cases in 'Party Name v Party Name, Court, Date' format, separated by semicolons, "
             "produces MULTIPLE 'bibl' spans — one per case.  The 'Party Name v Party Name' "
             "pattern IS a complete formal citation even though it does not follow the "
-            "SURNAME/author-date format.  "
+            "SURNAME/author-date format.  This also applies to court case citations in other legal cultures,"
+            "which might take other forms, such as by using case numbers or 'Aktenzeichen'. "
             "Step-by-step example — '1. Robins (2013); Boss (2000); Kovras (2017).' → "
             "bibl span 1: text = '1. Robins (2013);', with a nested 'label' span text = '1'; "
             "bibl span 2: text = 'Boss (2000);' (no label); "
