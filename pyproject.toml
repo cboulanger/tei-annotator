@@ -18,6 +18,8 @@ webservice = [
     "uvicorn[standard]>=0.30",
     "python-multipart>=0.0.9",
 ]
+wandb = ["wandb>=0.17"]
+mlflow = ["mlflow>=2.12"]
 
 [tool.pytest.ini_options]
 addopts = "-m 'not integration'"

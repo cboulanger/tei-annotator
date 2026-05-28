@@ -89,6 +89,7 @@ class EvaluationResult:
     unmatched_pred: list[EvaluationSpan]   # false positives
     per_element: dict[str, ElementMetrics] = field(default_factory=dict)
     annotation_xml: str | None = None      # raw annotator output; None on aggregates
+    elapsed_seconds: float | None = None   # wall-clock time for the LLM call; None on aggregates
 
     # ------------------------------------------------------------------
     # Micro-averaged (aggregate raw counts, then compute rates)

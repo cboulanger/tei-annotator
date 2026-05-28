@@ -2,7 +2,7 @@
 
 ## Package manager
 
-Uses `uv`. Run tests with `uv run pytest`. Install deps with `uv sync` (add `--extra gliner` or `--extra webservice` for optional extras). API keys go in `.env` (copy from `.env.template`).
+Uses `uv`. Run tests with `uv run pytest`. Install deps with `uv sync` (add `--extra gliner`, `--extra webservice`, `--extra wandb`, or `--extra mlflow` for optional extras). API keys go in `.env` (copy from `.env.template`).
 
 `gh` is available for GitHub operations (issues, PRs, etc.).
 
@@ -22,6 +22,7 @@ tei_annotator/          core library
     registry.py         SCHEMA_REGISTRY — maps schema key → build fn + root/child elements
   providers/            LLM connectors: hf / gemini / kisski / openai / claude
   evaluation/           EvaluationSpan, extract_spans(), compute_metrics(), evaluate_file()
+  tracking/             ExperimentTracker, RunContext, RecordEntry; wandb + mlflow connectors
   pipeline.py           annotate() — top-level entry point
   tei.py                create_schema() — parse RNG → TEISchema
 
@@ -102,6 +103,17 @@ uv run scripts/evaluate_llm.py --schema bibl --output-file results.txt
 Key flags: `--provider`, `--model`, `--schema`, `--gold-file`, `--max-items`,
 `--batch-size`, `--match-mode`, `--verbose`, `--grep`, `--shuffle`, `--timeout`.
 
+Experiment tracking flags: `--track {wandb,mlflow,all}`, `--run-name NAME`, `--log-prompts`.
+
+```bash
+# Log to W&B (requires WANDB_API_KEY + uv sync --extra wandb)
+uv run scripts/evaluate_llm.py --schema bibl --provider gemini --track wandb
+
+# Log to MLFlow/GitLab, including LLM prompts in the artifact table
+uv run scripts/evaluate_llm.py --schema bibl --provider gemini \
+    --track mlflow --log-prompts
+```
+
 ---
 
 ## Skills
@@ -127,6 +139,7 @@ Key flags: `--provider`, `--model`, `--schema`, `--gold-file`, `--max-items`,
 | [tei_annotator/schemas/README.md](tei_annotator/schemas/README.md) | Built-in schemas, registry, adding a new schema |
 | [tei_annotator/providers/README.md](tei_annotator/providers/README.md) | LLM connectors, adding a new provider |
 | [tei_annotator/evaluation/README.md](tei_annotator/evaluation/README.md) | Evaluation flow, match modes, metrics, `cert="low"` uncertain-boundary handling |
+| [tei_annotator/tracking/README.md](tei_annotator/tracking/README.md) | Experiment tracking (W&B, MLFlow); env vars, API, adding a new tracker |
 | [webservice/README.md](webservice/README.md) | FastAPI webservice setup and API |
 
 ### Guides
@@ -146,6 +159,5 @@ Key flags: `--provider`, `--model`, `--schema`, `--gold-file`, `--max-items`,
 
 ### History
 
-| Path | Topic |
-|------|-------|
-| [docs/history/implementation-plan.md](docs/history/implementation-plan.md) | Original design and implementation plan (historical) |
+- [docs/history/implementation-plan.md](docs/history/implementation-plan.md) — Original design and implementation plan (historical)
+- [docs/history/experiment-tracking.md](docs/history/experiment-tracking.md) — Experiment tracking (W&B, MLFlow): design decisions, CLI flags, webservice integration, inference timing

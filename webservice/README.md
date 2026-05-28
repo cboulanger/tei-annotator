@@ -81,6 +81,45 @@ CORPUS_DIR=/path/to/my/corpora   # in .env
 
 ---
 
+## Experiment tracking
+
+When `WANDB_API_KEY` or `MLFLOW_TRACKING_URI` is set, an **"Track with …"** checkbox
+appears in the browser UI below the "Evaluate against gold-standard corpus" toggle.
+The checkbox is only visible when eval mode is active.
+
+When checked, each `/api/evaluate` run is logged to all configured tracking backends
+with:
+- **Parameters**: schema, corpus, provider, model, n_records, batch_size
+- **Scalar metrics**: micro/macro P, R, F1 plus per-element breakdown
+- **Artifact table**: per-record F1, missed tags, spurious tags (CSV for MLFlow, Table for W&B)
+
+### Environment variables
+
+| Variable | Backend | Required | Default |
+|---|---|---|---|
+| `WANDB_API_KEY` | W&B | ✅ | — |
+| `WANDB_PROJECT` | W&B | | `"tei-annotator"` |
+| `WANDB_ENTITY` | W&B | | user default |
+| `MLFLOW_TRACKING_URI` | MLFlow | ✅ | — |
+| `MLFLOW_TRACKING_TOKEN` | MLFlow | | — |
+| `MLFLOW_EXPERIMENT_NAME` | MLFlow | | `"tei-annotator"` |
+
+For GitLab-hosted MLFlow:
+```
+MLFLOW_TRACKING_URI=https://gitlab.com/api/v4/projects/<project-id>/ml/mlflow
+MLFLOW_TRACKING_TOKEN=<your-gitlab-pat>
+```
+
+Install the optional packages:
+```bash
+uv sync --extra wandb
+uv sync --extra mlflow
+```
+
+See [tei_annotator/tracking/README.md](../tei_annotator/tracking/README.md) for full details and the CLI `--track` flag.
+
+---
+
 ## Security
 
 ### API key (`API_KEY`)

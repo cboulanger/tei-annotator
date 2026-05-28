@@ -85,6 +85,7 @@ async def _verify_token(authorization: str | None = Header(None)) -> None:
 
 from connectors import get_available_connectors, get_connector  # noqa: E402
 from tei_annotator.providers import ProviderTimeoutError  # noqa: E402
+from tei_annotator.tracking import get_available_trackers  # noqa: E402
 
 # Separator used to join/split multiple texts in a single LLM call.
 # Must not appear in any real bibliographic text.
@@ -283,6 +284,7 @@ def _run_evaluation(
     seed: int | None = None,
     premium_key: str | None = None,
     batch_size: int = 1,
+    track: bool = False,
 ) -> dict:
     """Sample n elements, annotate each, compute metrics vs gold standard."""
     from lxml import etree
@@ -314,13 +316,17 @@ def _run_evaluation(
 
     def _evaluate_one(el):
         plain_text, gold_spans = extract_spans(el)
+        _t0 = time.monotonic()
         ann_result = annotate(plain_text, schema, endpoint, gliner_model=_GLINER_MODEL)
+        _elapsed = round(time.monotonic() - _t0, 3)
         try:
             pred_el = etree.fromstring(f"<{_child_elem}>{ann_result.xml}</{_child_elem}>".encode(), _parser)
         except Exception:
             pred_el = etree.Element(_child_elem)
         _, pred_spans = extract_spans(pred_el)
-        return plain_text, compute_metrics(gold_spans, pred_spans, mode=MatchMode.TEXT)
+        result = compute_metrics(gold_spans, pred_spans, mode=MatchMode.TEXT)
+        result.elapsed_seconds = _elapsed
+        return plain_text, result
 
     def _evaluate_batch_group(batch_els):
         plain_texts = []
@@ -334,7 +340,9 @@ def _run_evaluation(
             return [_evaluate_one(el) for el in batch_els]
 
         combined = _BATCH_SEP.join(plain_texts)
+        _t0 = time.monotonic()
         ann_result = annotate(combined, schema, endpoint, gliner_model=_GLINER_MODEL)
+        _elapsed_per_record = round((time.monotonic() - _t0) / len(batch_els), 3)
         pieces = ann_result.xml.split(_BATCH_SEP)
 
         if len(pieces) != len(batch_els):
@@ -350,7 +358,9 @@ def _run_evaluation(
             except Exception:
                 pred_el = etree.Element(_child_elem)
             _, pred_spans = extract_spans(pred_el)
-            batch_results.append((pt, compute_metrics(gs, pred_spans, mode=MatchMode.TEXT)))
+            result = compute_metrics(gs, pred_spans, mode=MatchMode.TEXT)
+            result.elapsed_seconds = _elapsed_per_record
+            batch_results.append((pt, result))
         return batch_results
 
     from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -393,6 +403,45 @@ def _run_evaluation(
     agg = aggregate(per_result)
     connector = get_connector(provider_id) if provider_id else get_available_connectors()[0]
     resolved_model = model_id or connector.default_model
+
+    # --- experiment tracking -------------------------------------------
+    if track:
+        import datetime
+        import warnings
+        from tei_annotator.tracking.base import RecordEntry
+
+        _run_name = (
+            f"{schema_id}"
+            f"-{connector.name.replace(' ', '_')}-{resolved_model.replace('/', '-')}"
+            f"-{datetime.datetime.now():%Y%m%dT%H%M%S}"
+        )
+        _params = {
+            "schema": schema_id,
+            "corpus": corpus_label,
+            "provider": connector.id,
+            "model": resolved_model,
+            "n_records": len(samples),
+            "batch_size": batch_size,
+        }
+        for _tr in get_available_trackers():
+            try:
+                with _tr.start_run(_run_name, _params) as _ctx:
+                    for i, (pt, r) in enumerate(zip(sample_texts, per_result)):
+                        _ctx.log_record(RecordEntry(
+                            idx=i + 1,
+                            snippet=pt[:80].replace("\n", " "),
+                            micro_f1=r.micro_f1,
+                            missed_tags=[s.element for s in r.unmatched_gold],
+                            spurious_tags=[s.element for s in r.unmatched_pred],
+                            elapsed_seconds=r.elapsed_seconds,
+                        ))
+                    _ctx.log_summary(agg)
+            except Exception as _exc:
+                warnings.warn(
+                    f"[tracking/{_tr.id}] Failed to log evaluation run: {_exc}",
+                    stacklevel=2,
+                )
+
     return {
         "n_samples": len(samples),
         "provider": connector.id,
@@ -478,7 +527,18 @@ async def api_config(key: str | None = None):
             "corpora": labels,
         })
 
-    return {"providers": providers, "schemas": schemas, "token": _API_KEY, "premium": premium}
+    tracking_backends = [
+        {"id": t.id, "name": t.name}
+        for t in get_available_trackers()
+    ]
+
+    return {
+        "providers": providers,
+        "schemas": schemas,
+        "token": _API_KEY,
+        "premium": premium,
+        "tracking_backends": tracking_backends,
+    }
 
 
 @app.get("/api/sample")
@@ -698,6 +758,7 @@ class EvaluateRequest(BaseModel):
     n: int = 5
     seed: int | None = None
     batch_size: int = 1
+    track: bool = False
 
 
 @app.post("/api/evaluate")
@@ -728,6 +789,7 @@ async def evaluate_api(
             n=body.n, seed=body.seed,
             premium_key=x_premium_key,
             batch_size=body.batch_size,
+            track=body.track,
         )
     except HTTPException:
         raise

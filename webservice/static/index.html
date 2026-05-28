@@ -211,6 +211,10 @@
       <input type="checkbox" id="eval-mode">
       <label for="eval-mode">Evaluate against gold-standard corpus</label>
     </div>
+    <div id="track-wrap" class="eval-row" hidden>
+      <input type="checkbox" id="track-experiments">
+      <label for="track-experiments" id="track-label">Track experiment</label>
+    </div>
 
     <div class="row">
       <div id="schema-select-wrap">
@@ -324,6 +328,9 @@
     const modelsSelected  = document.getElementById('models-selected');
     const addModelBtn     = document.getElementById('add-model-btn');
     const removeModelBtn  = document.getElementById('remove-model-btn');
+    const trackWrap       = document.getElementById('track-wrap');
+    const trackCheck      = document.getElementById('track-experiments');
+    const trackLabel      = document.getElementById('track-label');
 
     // allProviders: [{id, name, models, default_model}]
     // allModels: flat list of {provider, model} objects
@@ -523,6 +530,7 @@
         corpusSelectWrap.hidden = false;
         nSamplesWrap.hidden = false;
         batchSizeWrap.hidden = false;
+        if (!trackWrap.dataset.empty) trackWrap.hidden = false;
         syncBatchSize(Math.max(1, parseInt(nSamplesInput.value, 10) || 5));
         populateAvailableModels();
         updateCorpusOptions();
@@ -537,6 +545,8 @@
         corpusSelectWrap.hidden = true;
         nSamplesWrap.hidden = true;
         batchSizeWrap.hidden = true;
+        trackWrap.hidden = true;
+        trackCheck.checked = false;
       }
     });
 
@@ -640,7 +650,7 @@
           const resp = await fetch('/api/evaluate', {
             method: 'POST',
             headers: authHeaders(),
-            body: JSON.stringify({ provider, model, schema_id: schemaId, corpus: corpusLabel, n, seed, batch_size: batchSize }),
+            body: JSON.stringify({ provider, model, schema_id: schemaId, corpus: corpusLabel, n, seed, batch_size: batchSize, track: trackCheck.checked }),
             signal: currentController.signal,
           });
           const data = await resp.json();
@@ -796,6 +806,15 @@
           badge.style.cssText = 'font-size:0.8em;color:#7c3aed;font-weight:600;margin-left:0.5em;';
           document.getElementById('model-select-wrap').appendChild(badge);
         }
+        // Configure tracking checkbox (shown only in eval mode when backends are available)
+        if (cfg.tracking_backends && cfg.tracking_backends.length > 0) {
+          const names = cfg.tracking_backends.map(b => b.name).join(' / ');
+          trackLabel.textContent = `Track with ${names}`;
+          // trackWrap.hidden stays true until eval mode is activated
+        } else {
+          trackWrap.dataset.empty = '1';  // signal: never show this checkbox
+        }
+
         document.getElementById('main-ui').hidden = false;
         if (evalCheck.checked) evalCheck.dispatchEvent(new Event('change'));
       } catch (e) {

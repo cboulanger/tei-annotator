@@ -8,6 +8,7 @@ For each configured provider the script:
   3. Runs the full annotate() pipeline.
   4. Compares the annotated output against the original markup.
   5. Prints precision, recall, and F1 — overall and per element type.
+  6. Optionally logs results to an experiment tracker (W&B or MLFlow).
 
 Providers:
   • Google Gemini 2.0 Flash     (GEMINI_API_KEY)
@@ -16,6 +17,7 @@ Providers:
 Usage:
     uv run scripts/evaluate_llm.py [--schema SCHEMA] [--gold-file PATH]
         [--max-items N] [--match-mode text|exact|overlap] [--gliner-model MODEL]
+        [--track wandb|mlflow|all] [--run-name NAME] [--log-prompts]
 
     # bibl schema (default) against its auto-detected corpus file:
     uv run scripts/evaluate_llm.py --schema bibl
@@ -26,11 +28,25 @@ Usage:
     # any schema with an explicit gold file:
     uv run scripts/evaluate_llm.py --schema bibl --gold-file path/to/file.xml
 
+    # log results to Weights & Biases:
+    uv run scripts/evaluate_llm.py --schema bibl --track wandb
+
+    # log results to MLFlow (GitLab), capturing prompts in the per-record table:
+    uv run scripts/evaluate_llm.py --schema bibl --track mlflow --log-prompts
+
 Gold-file auto-detection rule:
     data/corpus/<schema-name>.default.tei.xml
     e.g. schema "bibl" → data/corpus/bibl.default.tei.xml
 
 API keys are read from .env in the project root.
+
+Experiment tracking env vars:
+    WANDB_API_KEY              — enables Weights & Biases tracker
+    WANDB_PROJECT              — W&B project name (default: "tei-annotator")
+    WANDB_ENTITY               — W&B team/user (optional)
+    MLFLOW_TRACKING_URI        — enables MLFlow tracker (GitLab or local)
+    MLFLOW_TRACKING_TOKEN      — auth token (GitLab PAT)
+    MLFLOW_EXPERIMENT_NAME     — experiment name (default: "tei-annotator")
 """
 
 from __future__ import annotations
@@ -44,6 +60,7 @@ from dotenv import load_dotenv
 
 from tei_annotator.providers import _ALL_CONNECTORS, get_available_connectors, get_connector
 from tei_annotator.schemas.registry import build_schema, get_schema_config, get_schema_names
+from tei_annotator.tracking import _ALL_TRACKERS, get_available_trackers, get_tracker
 
 # ---------------------------------------------------------------------------
 # Paths & schema registry
@@ -130,6 +147,8 @@ def _evaluate_batch(
 
     # Step 4 — build combined text and annotate in one call
     combined = _BATCH_SEP.join(plain_texts[i] for i in non_empty_indices)
+    import time as _time
+    _batch_t0 = _time.monotonic()
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", message="Output XML validation failed")
         annotation_result = annotate(
@@ -138,6 +157,7 @@ def _evaluate_batch(
             endpoint=endpoint,
             gliner_model=gliner_model,
         )
+    _elapsed_per_record = round((_time.monotonic() - _batch_t0) / len(non_empty_indices), 3)
     combined_xml = annotation_result.xml
 
     # Step 5 — split annotated XML back into per-record fragments
@@ -176,6 +196,7 @@ def _evaluate_batch(
             overlap_threshold=overlap_threshold,
         )
         eval_result.annotation_xml = fragment
+        eval_result.elapsed_seconds = _elapsed_per_record
         results[i] = (eval_result, fragment)
 
     return results
@@ -240,6 +261,9 @@ def run_evaluation(
     verbose: bool = False,
     output_file: Path | None = None,
     batch_size: int = 1,
+    tracker=None,
+    run_name: str | None = None,
+    log_prompts: bool = False,
 ) -> bool:
     """
     Evaluate one provider: iterate over gold records with live progress,
@@ -248,9 +272,14 @@ def run_evaluation(
     When *output_file* is set all text output is written to that file and a
     tqdm progress bar is shown in the terminal instead of per-record lines.
 
+    When *tracker* is set (an ExperimentTracker instance), each run is logged
+    to the configured backend (W&B, MLFlow, …).  Pass *log_prompts=True* to
+    include the full LLM prompt in the per-record artifact table.
+
     Returns True on success, False if a fatal exception occurred.
     """
     import contextlib
+    import datetime
     import io
     import warnings
     from lxml import etree
@@ -258,6 +287,7 @@ def run_evaluation(
     from tei_annotator import preload_gliner_model
     from tei_annotator.evaluation import evaluate_element, aggregate, MatchMode
     from tei_annotator.inference.endpoint import EndpointCapability, EndpointConfig
+    from tei_annotator.tracking.base import RecordEntry, _NullRunContext
 
     try:
         from tqdm import tqdm as _tqdm
@@ -271,12 +301,30 @@ def run_evaluation(
     }
     match_mode = mode_map[match_mode_str]
 
+    n_total = len(records)
+
+    # --- tracking run context -----------------------------------------------
+    _run_name = run_name or (
+        f"{schema.name}"
+        f"-{provider_name.replace('/', '-').replace(' ', '_')}"
+        f"-{datetime.datetime.now():%Y%m%dT%H%M%S}"
+    )
+    _params = {
+        "schema": schema.name,
+        "provider": provider_name,
+        "match_mode": match_mode_str,
+        "batch_size": batch_size,
+        "n_records": n_total,
+        "gliner_model": gliner_model or "disabled",
+    }
+    ctx = tracker.start_run(_run_name, _params) if tracker else _NullRunContext()
+    if log_prompts:
+        call_fn = ctx.wrap_call_fn(call_fn)
+
     endpoint = EndpointConfig(
         capability=EndpointCapability.TEXT_GENERATION,
         call_fn=call_fn,
     )
-
-    n_total = len(records)
 
     # --- output destination and progress display ----------------------------
     # When --output-file: buffer all prints → file; show tqdm bar on stderr.
@@ -292,127 +340,142 @@ def run_evaluation(
               file=sys.stderr)
 
     _ok = False
-    with contextlib.redirect_stdout(_buf) if _buf else contextlib.nullcontext():
-        sep = "─" * 64
-        print(f"\n{sep}")
-        print(f"  Provider  : {provider_name}")
-        print(f"  Gold file : {gold_file.relative_to(_REPO)}")
-        print(f"  Records   : {n_total}   match-mode: {match_mode_str}")
-        print(f"  Batch size: {batch_size}")
-        print(f"  GLiNER    : {gliner_model or 'disabled'}")
-        print(sep)
+    with ctx:
+        with contextlib.redirect_stdout(_buf) if _buf else contextlib.nullcontext():
+            sep = "─" * 64
+            print(f"\n{sep}")
+            print(f"  Provider  : {provider_name}")
+            print(f"  Gold file : {gold_file.relative_to(_REPO)}")
+            print(f"  Records   : {n_total}   match-mode: {match_mode_str}")
+            print(f"  Batch size: {batch_size}")
+            print(f"  GLiNER    : {gliner_model or 'disabled'}")
+            if tracker:
+                print(f"  Tracking  : {tracker.name}  run={_run_name!r}")
+            print(sep)
 
-        if gliner_model:
-            print(f"  Loading GLiNER model '{gliner_model}'...", flush=True)
-            preload_gliner_model(gliner_model)
-            print(f"  GLiNER model ready.")
+            if gliner_model:
+                print(f"  Loading GLiNER model '{gliner_model}'...", flush=True)
+                preload_gliner_model(gliner_model)
+                print(f"  GLiNER model ready.")
 
-        def _batched(lst, size):
-            for start in range(0, len(lst), size):
-                yield lst[start : start + size]
+            def _batched(lst, size):
+                for start in range(0, len(lst), size):
+                    yield lst[start : start + size]
 
-        per_record = []
-        failed = 0
-        item_idx = 0
-        sep60 = "─" * 60
-        for batch in _batched(records, batch_size):
-            batch_start = item_idx + 1
-            batch_end = item_idx + len(batch)
-            snippet = "".join(batch[0].itertext())[:60].replace("\n", " ")
+            per_record = []
+            failed = 0
+            item_idx = 0
+            sep60 = "─" * 60
+            for batch in _batched(records, batch_size):
+                batch_start = item_idx + 1
+                batch_end = item_idx + len(batch)
+                snippet = "".join(batch[0].itertext())[:60].replace("\n", " ")
+                if _pbar:
+                    _pbar.set_description(snippet[:45])
+                else:
+                    range_str = (
+                        f"{batch_start:3d}"
+                        if batch_size == 1
+                        else f"{batch_start}-{batch_end}"
+                    )
+                    print(f"  [{range_str}/{n_total}] {snippet}...", end="\r\n", flush=True)
+                try:
+                    # Suppress the pipeline's best-effort XML validation warning here;
+                    # it surfaces again in the evaluator warning if parsing fails.
+                    with warnings.catch_warnings():
+                        warnings.filterwarnings(
+                            "ignore",
+                            message="Output XML validation failed",
+                        )
+                        if batch_size == 1:
+                            result = evaluate_element(
+                                gold_element=batch[0],
+                                schema=schema,
+                                endpoint=endpoint,
+                                gliner_model=gliner_model,
+                                match_mode=match_mode,
+                            )
+                            batch_results = [(result, result.annotation_xml)]
+                        else:
+                            batch_results = _evaluate_batch(
+                                batch_bibls=batch,
+                                schema=schema,
+                                endpoint=endpoint,
+                                match_mode=match_mode,
+                                gliner_model=gliner_model,
+                            )
+                    for k, (result, annotation_frag) in enumerate(batch_results):
+                        bibl = batch[k]
+                        if verbose and annotation_frag is not None and result.micro_f1 < 1.0:
+                            gold_parts = [bibl.text or ""]
+                            for child in bibl:
+                                child_xml = etree.tostring(child, encoding="unicode", with_tail=True)
+                                gold_parts.append(re.sub(r'\s+xmlns(?::\w+)?="[^"]*"', "", child_xml))
+                            gold_xml = "".join(gold_parts)
+                            print(f"  {sep60}")
+                            print(f"  Gold:       {gold_xml}")
+                            print(f"  Annotation: {annotation_frag}")
+                            print(f"  F1={result.micro_f1:.3f}  "
+                                  f"missed={[s.element for s in result.unmatched_gold]}  "
+                                  f"spurious={[s.element for s in result.unmatched_pred]}")
+                        per_record.append(result)
+                        # Log per-record entry to tracker
+                        _snippet_tr = "".join(bibl.itertext())[:80].replace("\n", " ")
+                        ctx.log_record(RecordEntry(
+                            idx=item_idx + k + 1,
+                            snippet=_snippet_tr,
+                            micro_f1=result.micro_f1,
+                            missed_tags=[s.element for s in result.unmatched_gold],
+                            spurious_tags=[s.element for s in result.unmatched_pred],
+                            elapsed_seconds=result.elapsed_seconds,
+                            prompt=ctx._last_prompt if log_prompts else None,
+                        ))
+                    item_idx += len(batch)
+                    if _pbar:
+                        _pbar.update(len(batch))
+                        _pbar.set_postfix(F1=f"{batch_results[0][0].micro_f1:.3f}")
+                except Exception as exc:
+                    print(f"\n  [{batch_start}-{batch_end}/{n_total}] ERROR — {exc}")
+                    failed += len(batch)
+                    item_idx += len(batch)
+                    if _pbar:
+                        _pbar.update(len(batch))
+
             if _pbar:
-                _pbar.set_description(snippet[:45])
+                _pbar.close()
             else:
-                range_str = (
-                    f"{batch_start:3d}"
-                    if batch_size == 1
-                    else f"{batch_start}-{batch_end}"
-                )
-                print(f"  [{range_str}/{n_total}] {snippet}...", end="\r\n", flush=True)
-            try:
-                # Suppress the pipeline's best-effort XML validation warning here;
-                # it surfaces again in the evaluator warning if parsing fails.
-                with warnings.catch_warnings():
-                    warnings.filterwarnings(
-                        "ignore",
-                        message="Output XML validation failed",
-                    )
-                    if batch_size == 1:
-                        result = evaluate_element(
-                            gold_element=batch[0],
-                            schema=schema,
-                            endpoint=endpoint,
-                            gliner_model=gliner_model,
-                            match_mode=match_mode,
+                # Clear the progress line
+                print(" " * 70, end="\r")
+
+            if not per_record:
+                print("  ✗ All records failed — no results to report.")
+            else:
+                overall = aggregate(per_record)
+                ctx.log_summary(overall)
+                n_ok = len(per_record)
+                print(f"\n  Completed: {n_ok}/{n_total} records"
+                      + (f"  ({failed} failed)" if failed else "") + "\n")
+                print(overall.report(title=f"Overall — {provider_name}"))
+
+                # Show the five worst records (by F1) for diagnostics
+                worst = sorted(
+                    [(i, r) for i, r in enumerate(per_record, 1) if r.micro_f1 < 1.0],
+                    key=lambda x: x[1].micro_f1,
+                )[:5]
+                if worst:
+                    print(f"\n  Lowest-F1 records (top 5):")
+                    for idx, r in worst:
+                        record = records[idx - 1]
+                        snippet = "".join(record.itertext())[:55].replace("\n", " ")
+                        fn_tags = [s.element for s in r.unmatched_gold]
+                        fp_tags = [s.element for s in r.unmatched_pred]
+                        print(
+                            f"    #{idx:3d}  F1={r.micro_f1:.3f}"
+                            f"  missed={fn_tags}  spurious={fp_tags}"
                         )
-                        batch_results = [(result, result.annotation_xml)]
-                    else:
-                        batch_results = _evaluate_batch(
-                            batch_bibls=batch,
-                            schema=schema,
-                            endpoint=endpoint,
-                            match_mode=match_mode,
-                            gliner_model=gliner_model,
-                        )
-                for k, (result, annotation_frag) in enumerate(batch_results):
-                    bibl = batch[k]
-                    if verbose and annotation_frag is not None and result.micro_f1 < 1.0:
-                        gold_parts = [bibl.text or ""]
-                        for child in bibl:
-                            child_xml = etree.tostring(child, encoding="unicode", with_tail=True)
-                            gold_parts.append(re.sub(r'\s+xmlns(?::\w+)?="[^"]*"', "", child_xml))
-                        gold_xml = "".join(gold_parts)
-                        print(f"  {sep60}")
-                        print(f"  Gold:       {gold_xml}")
-                        print(f"  Annotation: {annotation_frag}")
-                        print(f"  F1={result.micro_f1:.3f}  "
-                              f"missed={[s.element for s in result.unmatched_gold]}  "
-                              f"spurious={[s.element for s in result.unmatched_pred]}")
-                    per_record.append(result)
-                item_idx += len(batch)
-                if _pbar:
-                    _pbar.update(len(batch))
-                    _pbar.set_postfix(F1=f"{batch_results[0][0].micro_f1:.3f}")
-            except Exception as exc:
-                print(f"\n  [{batch_start}-{batch_end}/{n_total}] ERROR — {exc}")
-                failed += len(batch)
-                item_idx += len(batch)
-                if _pbar:
-                    _pbar.update(len(batch))
+                        print(f'         "{snippet}..."')
 
-        if _pbar:
-            _pbar.close()
-        else:
-            # Clear the progress line
-            print(" " * 70, end="\r")
-
-        if not per_record:
-            print("  ✗ All records failed — no results to report.")
-        else:
-            overall = aggregate(per_record)
-            n_ok = len(per_record)
-            print(f"\n  Completed: {n_ok}/{n_total} records"
-                  + (f"  ({failed} failed)" if failed else "") + "\n")
-            print(overall.report(title=f"Overall — {provider_name}"))
-
-            # Show the five worst records (by F1) for diagnostics
-            worst = sorted(
-                [(i, r) for i, r in enumerate(per_record, 1) if r.micro_f1 < 1.0],
-                key=lambda x: x[1].micro_f1,
-            )[:5]
-            if worst:
-                print(f"\n  Lowest-F1 records (top 5):")
-                for idx, r in worst:
-                    record = records[idx - 1]
-                    snippet = "".join(record.itertext())[:55].replace("\n", " ")
-                    fn_tags = [s.element for s in r.unmatched_gold]
-                    fp_tags = [s.element for s in r.unmatched_pred]
-                    print(
-                        f"    #{idx:3d}  F1={r.micro_f1:.3f}"
-                        f"  missed={fn_tags}  spurious={fp_tags}"
-                    )
-                    print(f'         "{snippet}..."')
-
-            _ok = True
+                _ok = True
 
     if _buf is not None:
         with open(output_file, "a", encoding="utf-8") as _fh:
@@ -540,6 +603,36 @@ def _parse_args() -> argparse.Namespace:
         default=False,
         help="Randomly shuffle the evaluation set before applying --max-items.",
     )
+    _tracker_ids = [t.id for t in _ALL_TRACKERS]
+    p.add_argument(
+        "--track",
+        choices=_tracker_ids + ["all"],
+        default=None,
+        metavar="BACKEND",
+        help=(
+            f"Log results to an experiment tracker. "
+            f"Available backends: {', '.join(_tracker_ids)} or 'all'. "
+            "Requires the corresponding env vars and optional package to be installed."
+        ),
+    )
+    p.add_argument(
+        "--run-name",
+        default=None,
+        metavar="NAME",
+        help=(
+            "Custom name for this experiment run. "
+            "Default: <schema>-<provider>-<timestamp>."
+        ),
+    )
+    p.add_argument(
+        "--log-prompts",
+        action="store_true",
+        default=False,
+        help=(
+            "Capture and include the full LLM prompt in the per-record artifact table. "
+            "Only has effect when --track is set."
+        ),
+    )
     return p.parse_args()
 
 
@@ -595,6 +688,43 @@ def main() -> int:
         max_items=args.max_items,
     )
 
+    # --- resolve experiment tracker(s) -------------------------------------
+    tracker = None
+    if args.track:
+        if args.track == "all":
+            available = get_available_trackers()
+            if not available:
+                print(
+                    "WARNING: --track all specified but no trackers are configured "
+                    "(check WANDB_API_KEY / MLFLOW_TRACKING_URI).",
+                    file=sys.stderr,
+                )
+            elif len(available) > 1:
+                # Multiple trackers: use the first available; log a note about others
+                print(
+                    f"NOTE: Multiple trackers available "
+                    f"({', '.join(t.name for t in available)}). "
+                    "Currently only one tracker per run is supported; "
+                    f"using {available[0].name}.",
+                    file=sys.stderr,
+                )
+                tracker = available[0]
+            else:
+                tracker = available[0]
+        else:
+            t = get_tracker(args.track)
+            if t is None:
+                print(f"ERROR: Unknown tracker {args.track!r}", file=sys.stderr)
+                return 1
+            if not t.is_available():
+                print(
+                    f"ERROR: Tracker {args.track!r} is not available — "
+                    "check your environment variables.",
+                    file=sys.stderr,
+                )
+                return 1
+            tracker = t
+
     results: list[bool] = []
     for name, fn in providers:
         ok = run_evaluation(
@@ -608,6 +738,9 @@ def main() -> int:
             verbose=args.verbose,
             output_file=Path(args.output_file) if args.output_file else None,
             batch_size=args.batch_size,
+            tracker=tracker,
+            run_name=args.run_name,
+            log_prompts=args.log_prompts,
         )
         results.append(ok)
 

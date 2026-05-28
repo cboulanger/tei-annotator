@@ -20,6 +20,7 @@ Both functions follow the same pipeline:
 from __future__ import annotations
 
 import re
+import time
 import warnings
 from pathlib import Path
 
@@ -125,6 +126,7 @@ def evaluate_element(
         return compute_metrics([], [])
 
     # Step 2 — annotate the plain text
+    _t0 = time.monotonic()
     result = annotate(
         text=plain_text,
         schema=schema,
@@ -133,6 +135,7 @@ def evaluate_element(
         chunk_size=chunk_size,
         chunk_overlap=chunk_overlap,
     )
+    _elapsed = time.monotonic() - _t0
 
     # Step 3 — parse the annotated XML output
     # annotate() returns a fragment (no root element), so we wrap it.
@@ -161,6 +164,7 @@ def evaluate_element(
         overlap_threshold=overlap_threshold,
     )
     eval_result.annotation_xml = result.xml
+    eval_result.elapsed_seconds = round(_elapsed, 3)
     return eval_result
 
 
