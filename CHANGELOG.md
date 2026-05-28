@@ -1,3 +1,15 @@
+# [1.8.0](https://github.com/cboulanger/tei-annotator/compare/v1.7.2...v1.8.0) (2026-05-28)
+
+
+### Bug Fixes
+
+* Fix prompt ([401a91b](https://github.com/cboulanger/tei-annotator/commit/401a91b8a62d27c8684e7ae160bd4a0c34662fda))
+
+
+### Features
+
+* **tracking:** add experiment tracking module with W&B and MLFlow backends ([99ea991](https://github.com/cboulanger/tei-annotator/commit/99ea991d7fbc191248b8fb3a80cb0a8c01b83541))
+
 ## [1.7.2](https://github.com/cboulanger/tei-annotator/compare/v1.7.1...v1.7.2) (2026-05-21)
 
 
