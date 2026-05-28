@@ -76,12 +76,16 @@ uv run scripts/evaluate_llm.py \
 
 `micro_precision`, `micro_recall`, `micro_f1`, `micro_tp`, `micro_fp`, `micro_fn`,
 `macro_precision`, `macro_recall`, `macro_f1`,
-plus `element/{tag}/precision`, `element/{tag}/recall`, `element/{tag}/f1` for each element type.
+plus `element/{tag}/precision`, `element/{tag}/recall`, `element/{tag}/f1` for each element type,
+plus `mean_elapsed_seconds` and `total_elapsed_seconds` (when at least one record has timing).
 
 ### Per-record artifact table
 
 A table with columns: `idx`, `snippet`, `f1`, `missed_tags`, `spurious_tags`.
-When `--log-prompts` is passed: an additional `prompt` column with the full LLM prompt.
+Optional columns added when data is present:
+
+- `elapsed_seconds` — wall-clock time for the LLM call (always present in CLI and webservice runs)
+- `prompt` — full LLM prompt (present when `--log-prompts` is passed)
 
 - **W&B**: logged as a `wandb.Table` named `per_record`
 - **MLFlow**: logged as a CSV file artifact under `evaluation/per_record_*.csv`
@@ -110,6 +114,7 @@ with tracker.start_run("my-run", params_dict) as ctx:
             micro_f1=result.micro_f1,
             missed_tags=[s.element for s in result.unmatched_gold],
             spurious_tags=[s.element for s in result.unmatched_pred],
+            elapsed_seconds=result.elapsed_seconds,  # wall-clock LLM time
             prompt=None,  # set to full LLM prompt if --log-prompts
         ))
     ctx.log_summary(aggregate_result)

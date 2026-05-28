@@ -44,7 +44,8 @@ Stage documentation:
 [Prompt building](tei_annotator/prompting/README.md) ·
 [Inference configuration](tei_annotator/inference/README.md) ·
 [Post-processing](tei_annotator/postprocessing/README.md) ·
-[Evaluation](tei_annotator/evaluation/README.md)
+[Evaluation](tei_annotator/evaluation/README.md) ·
+[Experiment tracking](tei_annotator/tracking/README.md)
 
 ---
 
@@ -155,6 +156,17 @@ uv run scripts/evaluate_llm.py --schema bibl --output-file results.txt
 ```
 
 Key flags: `--provider`, `--model`, `--schema`, `--gold-file`, `--max-items`, `--batch-size`, `--match-mode`, `--verbose`, `--grep`, `--shuffle`.
+
+Evaluation runs can be logged to **Weights & Biases** or **MLFlow** (including GitLab-hosted instances) for persistent tracking across schema changes and model updates:
+
+```bash
+uv sync --extra wandb   # or: --extra mlflow  (install backend first)
+
+uv run scripts/evaluate_llm.py --schema bibl --provider gemini --track wandb
+uv run scripts/evaluate_llm.py --schema bibl --provider gemini --track mlflow --log-prompts
+```
+
+Each run records scalar metrics (micro/macro F1, precision, recall, per-element breakdown, mean inference time) and a per-record artifact table. See [tei_annotator/tracking/README.md](tei_annotator/tracking/README.md) for env vars, API reference, and how to add a new backend.
 
 `scripts/collect_hard_examples.py` builds a gold fixture of challenging examples by evaluating items in mini-batches and retaining those the model handles poorly:
 
