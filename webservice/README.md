@@ -2,6 +2,8 @@
 
 FastAPI JSON API with a browser UI. Supports multiple LLM providers via a connector system — providers are enabled automatically based on which API keys are present in `.env`.
 
+<img height="600" alt="grafik" src="https://github.com/user-attachments/assets/526f8f6a-2be5-4f3b-871e-75b6da49dd9d" />
+
 ---
 
 ## Running
