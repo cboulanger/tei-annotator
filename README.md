@@ -1,6 +1,6 @@
 # TEI Annotator
 
-A Python library for annotating plain text with [TEI XML](https://tei-c.org/) tags using a two-stage LLM pipeline.
+A Python library for annotating plain text with [TEI XML](https://tei-c.org/) tags using a two-stage LLM pipeline, with a webservice for experiments.
 
 1. **(Optional) GLiNER pre-detection** — fast CPU-based span labelling generates candidates for the LLM to verify and extend.
 2. **LLM annotation** — a prompted language model identifies entities and returns structured spans (element, verbatim text, surrounding context, attributes).
@@ -218,7 +218,7 @@ FINAL OUTPUT                          (annotated XML)
 
 ## Demo and webservice
 
-<img width="1646" height="1668" alt="grafik" src="https://github.com/user-attachments/assets/526f8f6a-2be5-4f3b-871e-75b6da49dd9d" />
+<img width="600" alt="grafik" src="https://github.com/user-attachments/assets/526f8f6a-2be5-4f3b-871e-75b6da49dd9d" />
 
 - **`webservice/`** — FastAPI JSON API + browser UI, all five providers. See [webservice/README.md](webservice/README.md).
 
