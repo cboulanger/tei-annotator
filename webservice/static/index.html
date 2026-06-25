@@ -727,8 +727,11 @@
       copyTable('eval-table', this);
     });
 
-    // Bearer token received from /api/config (null when server has no API_KEY set).
-    let apiToken = null;
+    // API key from URL ?api_key= param, persisted in sessionStorage for the tab.
+    // Operators who set API_KEY must share the URL as: https://host/?api_key=<secret>
+    const _urlApiKey = new URLSearchParams(location.search).get('api_key');
+    const apiToken = _urlApiKey ?? sessionStorage.getItem('apiToken') ?? null;
+    if (apiToken) sessionStorage.setItem('apiToken', apiToken);
 
     // Premium key from URL ?key= param, persisted in sessionStorage for the tab.
     const _urlKey = new URLSearchParams(location.search).get('key');
@@ -748,7 +751,6 @@
       try {
         const configUrl = '/api/config' + (premiumKey ? '?key=' + encodeURIComponent(premiumKey) : '');
         const cfg = await fetch(configUrl).then(r => r.json());
-        apiToken = cfg.token || null;
         if (!cfg.providers || cfg.providers.length === 0) {
           document.getElementById('no-token').hidden = false;
           return;

@@ -15,6 +15,7 @@ variables).  Copy .env.template to .env and fill in your provider API keys.
 
 from __future__ import annotations
 
+import hmac
 import os
 import random
 import sys
@@ -80,7 +81,7 @@ async def _verify_token(authorization: str | None = Header(None)) -> None:
     """Dependency: reject requests that don't carry the configured API_KEY."""
     if _API_KEY is None:
         return  # enforcement disabled
-    if authorization != f"Bearer {_API_KEY}":
+    if not hmac.compare_digest(authorization or "", f"Bearer {_API_KEY}"):
         raise HTTPException(status_code=401, detail="Missing or invalid API key.")
 
 from connectors import get_available_connectors, get_connector  # noqa: E402
@@ -501,7 +502,7 @@ async def api_config(key: str | None = None):
     """
     from tei_annotator.schemas.registry import get_schema_names
 
-    premium = bool(_PREMIUM_TOKEN and key == _PREMIUM_TOKEN)
+    premium = bool(_PREMIUM_TOKEN and hmac.compare_digest(key or "", _PREMIUM_TOKEN))
     providers = []
     for c in get_available_connectors():
         all_models = c.models()
@@ -535,7 +536,6 @@ async def api_config(key: str | None = None):
     return {
         "providers": providers,
         "schemas": schemas,
-        "token": _API_KEY,
         "premium": premium,
         "tracking_backends": tracking_backends,
     }
