@@ -1,3 +1,10 @@
+## [1.8.1](https://github.com/cboulanger/tei-annotator/compare/v1.8.0...v1.8.1) (2026-06-25)
+
+
+### Bug Fixes
+
+* close API key disclosure and timing-attack vulnerabilities ([85edf6d](https://github.com/cboulanger/tei-annotator/commit/85edf6d8d0addaedcfca77c7386ac03a42046347))
+
 # [1.8.0](https://github.com/cboulanger/tei-annotator/compare/v1.7.2...v1.8.0) (2026-05-28)
 
 
